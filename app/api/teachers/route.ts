@@ -74,13 +74,11 @@ export async function POST(request: Request) {
       throw authError;
     }
 
-    const userId = authData.user?.id;
-
     const { password: _pwd, ...teacherFields } = payload;
 
     const { data, error } = await supabase
       .from("teachers")
-      .insert([{ ...teacherFields, user_id: userId, org_id: orgId }])
+      .insert([{ ...teacherFields, org_id: orgId }])
       .select()
       .single();
 
