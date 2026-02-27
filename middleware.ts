@@ -15,6 +15,14 @@ const protectedRoutes = [
 ];
 
 const authRoutes = ["/login", "/signup"];
+const teacherAllowedRoutes = [
+  "/dashboard/teacher",
+  "/dashboard/attendance",
+  "/dashboard/sessions",
+  "/dashboard/students",
+];
+
+type MetadataMap = Record<string, unknown>;
 
 function isProtected(pathname: string) {
   return protectedRoutes.some((route) => pathname.startsWith(route));
@@ -22,6 +30,32 @@ function isProtected(pathname: string) {
 
 function isAuthPage(pathname: string) {
   return authRoutes.some((route) => pathname.startsWith(route));
+}
+
+function isTeacherRouteAllowed(pathname: string) {
+  return teacherAllowedRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+}
+
+function asMetadataMap(input: unknown): MetadataMap {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return input as MetadataMap;
+  }
+  return {};
+}
+
+function readString(map: MetadataMap, key: string) {
+  const value = map[key];
+  return typeof value === "string" ? value : null;
+}
+
+function readFirstRole(map: MetadataMap) {
+  const roles = map.roles;
+  if (Array.isArray(roles) && typeof roles[0] === "string") {
+    return roles[0];
+  }
+  return null;
 }
 
 export async function middleware(request: NextRequest) {
@@ -47,10 +81,12 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const appMeta = asMetadataMap(user?.app_metadata);
+  const userMeta = asMetadataMap(user?.user_metadata);
   const role =
-    (user?.app_metadata as any)?.role ||
-    (user?.user_metadata as any)?.role ||
-    ((user?.app_metadata as any)?.roles || [])[0] ||
+    readString(appMeta, "role") ||
+    readString(userMeta, "role") ||
+    readFirstRole(appMeta) ||
     null;
 
   if (isProtected(pathname) && !user) {
@@ -68,10 +104,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    const meta = user.app_metadata || {};
-    const userMeta = user.user_metadata || {};
-    const orgId = (meta as any).org_id || (userMeta as any).default_org_id || null;
-    const orgName = (meta as any).org_name || (userMeta as any).org_name || "Primary Organization";
+    const orgId = readString(appMeta, "org_id") || readString(userMeta, "default_org_id") || null;
+    const orgName = readString(appMeta, "org_name") || readString(userMeta, "org_name") || "Primary Organization";
 
     if (orgId) {
       response.cookies.set("vam_active_org", String(orgId), {
@@ -92,7 +126,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Restrict teachers to their dashboard only
-  if (role === "teacher" && pathname.startsWith("/dashboard") && !pathname.startsWith("/dashboard/teacher")) {
+  if (role === "teacher" && pathname.startsWith("/dashboard") && !isTeacherRouteAllowed(pathname)) {
     return NextResponse.redirect(new URL("/dashboard/teacher", request.url));
   }
 

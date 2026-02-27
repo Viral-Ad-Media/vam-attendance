@@ -50,12 +50,14 @@ export default function TeachersPage() {
   const [newTeacherName, setNewTeacherName] = React.useState("");
   const [newTeacherEmail, setNewTeacherEmail] = React.useState("");
   const [newTeacherPassword, setNewTeacherPassword] = React.useState("");
+  const [sendTeacherSetupLink, setSendTeacherSetupLink] = React.useState(true);
   const [teacherSaving, setTeacherSaving] = React.useState(false);
   const [teacherError, setTeacherError] = React.useState<string | null>(null);
   const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
   const [editTeacherId, setEditTeacherId] = React.useState<string | null>(null);
   const [editTeacherName, setEditTeacherName] = React.useState("");
   const [editTeacherEmail, setEditTeacherEmail] = React.useState("");
+  const [editTeacherSendSetup, setEditTeacherSendSetup] = React.useState(false);
   const [editTeacherSaving, setEditTeacherSaving] = React.useState(false);
   const [editTeacherError, setEditTeacherError] = React.useState<string | null>(null);
 
@@ -133,7 +135,14 @@ export default function TeachersPage() {
             <Button variant="secondary" onClick={() => setOpenCourse(true)}>
               + Add Course
             </Button>
-            <Button onClick={() => setOpenTeacherModal(true)}>+ Add Teacher</Button>
+            <Button
+              onClick={() => {
+                setTeacherError(null);
+                setOpenTeacherModal(true);
+              }}
+            >
+              + Add Teacher
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -179,6 +188,7 @@ export default function TeachersPage() {
                         setEditTeacherId(t.id);
                         setEditTeacherName(t.name);
                         setEditTeacherEmail(t.email);
+                        setEditTeacherSendSetup(false);
                         setOpenEditTeacher(true);
                       }}
                     >
@@ -227,6 +237,7 @@ export default function TeachersPage() {
                             setEditTeacherId(t.id);
                             setEditTeacherName(t.name);
                             setEditTeacherEmail(t.email);
+                            setEditTeacherSendSetup(false);
                             setOpenEditTeacher(true);
                           }}
                         >
@@ -407,7 +418,17 @@ export default function TeachersPage() {
                     setCourseSaving(true);
                     setCourseError(null);
                     setCourseSuccess(null);
-                    const payload: any = {
+                    const payload: {
+                      title: string;
+                      modality: "group" | "1on1";
+                      lead_teacher_id: string | null;
+                      course_type: string | null;
+                      duration_weeks: number | null;
+                      sessions_per_week: number | null;
+                      meeting_days?: number[];
+                      max_students: number | null;
+                      starts_at: string | null;
+                    } = {
                       title: courseTitle.trim(),
                       modality: courseModality,
                       lead_teacher_id: courseLeadTeacher || null,
@@ -478,11 +499,23 @@ export default function TeachersPage() {
               />
               <Input
                 type="password"
-                placeholder="Password (min 6 chars)"
+                placeholder="Optional password (min 8 chars)"
                 value={newTeacherPassword}
                 onChange={(e) => setNewTeacherPassword(e.target.value)}
                 className="h-9"
               />
+              <label className="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={sendTeacherSetupLink}
+                  onChange={(e) => setSendTeacherSetupLink(e.target.checked)}
+                />
+                <span>Send password setup email to teacher</span>
+              </label>
+              <p className="text-xs text-slate-500">
+                Leave password empty to let the teacher create their password from email.
+              </p>
               {teacherError && (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {teacherError}
@@ -498,7 +531,8 @@ export default function TeachersPage() {
                   teacherSaving ||
                   !newTeacherName.trim() ||
                   !newTeacherEmail.trim() ||
-                  newTeacherPassword.trim().length < 6
+                  (newTeacherPassword.trim().length > 0 && newTeacherPassword.trim().length < 8) ||
+                  (!sendTeacherSetupLink && newTeacherPassword.trim().length === 0)
                 }
                 onClick={async () => {
                   try {
@@ -510,14 +544,22 @@ export default function TeachersPage() {
                       body: JSON.stringify({
                         name: newTeacherName.trim(),
                         email: newTeacherEmail.trim(),
-                        password: newTeacherPassword.trim(),
+                        ...(newTeacherPassword.trim().length ? { password: newTeacherPassword.trim() } : {}),
+                        sendPasswordSetup: sendTeacherSetupLink,
                       }),
                     });
-                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Failed to create teacher");
                     setNewTeacherName("");
                     setNewTeacherEmail("");
                     setNewTeacherPassword("");
+                    setSendTeacherSetupLink(true);
                     setOpenTeacherModal(false);
+                    if (data.setup_email_sent) {
+                      alert("Teacher created and password setup email sent.");
+                    } else if (sendTeacherSetupLink) {
+                      alert("Teacher created. Setup email could not be sent, please retry from Edit.");
+                    }
                     const tRes = await fetch("/api/teachers", { cache: "no-store" });
                     if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
                   } catch (err) {
@@ -564,6 +606,15 @@ export default function TeachersPage() {
                 onChange={(e) => setEditTeacherEmail(e.target.value)}
                 className="h-9"
               />
+              <label className="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={editTeacherSendSetup}
+                  onChange={(e) => setEditTeacherSendSetup(e.target.checked)}
+                />
+                <span>Send password setup email after save</span>
+              </label>
               {editTeacherError && (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {editTeacherError}
@@ -575,7 +626,12 @@ export default function TeachersPage() {
                 Cancel
               </Button>
               <Button
-                disabled={!editTeacherId || editTeacherSaving}
+                disabled={
+                  !editTeacherId ||
+                  editTeacherSaving ||
+                  !editTeacherName.trim() ||
+                  !editTeacherEmail.trim()
+                }
                 onClick={async () => {
                   if (!editTeacherId) return;
                   try {
@@ -586,11 +642,18 @@ export default function TeachersPage() {
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         name: editTeacherName.trim(),
-                        email: editTeacherEmail.trim() || null,
+                        email: editTeacherEmail.trim(),
+                        sendPasswordSetup: editTeacherSendSetup,
                       }),
                     });
-                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Failed to update teacher");
                     setOpenEditTeacher(false);
+                    if (data.setup_email_sent) {
+                      alert("Teacher updated and password setup email sent.");
+                    } else if (editTeacherSendSetup) {
+                      alert("Teacher updated. Setup email could not be sent.");
+                    }
                     const tRes = await fetch("/api/teachers", { cache: "no-store" });
                     if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
                   } catch (err) {
