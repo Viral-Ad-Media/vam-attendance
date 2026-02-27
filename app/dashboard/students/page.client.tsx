@@ -204,6 +204,33 @@ export default function StudentsPage() {
     }
   };
 
+  const deleteStudent = async (student: Student) => {
+    if (!confirm(`Delete student ${student.name}?`)) return;
+
+    try {
+      const res = await fetch(`/api/students/${student.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          throw new Error(parsed.error || parsed.message || "Failed to delete student");
+        } catch {
+          throw new Error(text || "Failed to delete student");
+        }
+      }
+
+      const [sRes, eRes] = await Promise.all([
+        fetch("/api/students", { cache: "no-store" }),
+        fetch("/api/enrollments", { cache: "no-store" }),
+      ]);
+      if (sRes.ok) setStudents((await sRes.json()) as Student[]);
+      if (eRes.ok) setEnrollments((await eRes.json()) as Enrollment[]);
+      if (detailStudent?.id === student.id) setDetailStudent(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete student");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <TopBar title="Students" subtitle="Student directory" showAccountInTitle={false} />
@@ -300,6 +327,14 @@ export default function StudentsPage() {
                             >
                               Edit
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50"
+                              onClick={() => deleteStudent(s)}
+                            >
+                              Delete
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -357,6 +392,14 @@ export default function StudentsPage() {
                           }}
                         >
                           Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-red-600 hover:bg-red-50"
+                          onClick={() => deleteStudent(s)}
+                        >
+                          Delete
                         </Button>
                       </div>
                     </div>

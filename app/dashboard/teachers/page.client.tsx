@@ -97,6 +97,29 @@ export default function TeachersPage() {
       .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
   );
 
+  const deleteTeacher = async (teacher: Teacher) => {
+    if (!confirm(`Delete teacher ${teacher.name}?`)) return;
+
+    try {
+      const res = await fetch(`/api/teachers/${teacher.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          throw new Error(parsed.error || parsed.message || "Failed to delete teacher");
+        } catch {
+          throw new Error(text || "Failed to delete teacher");
+        }
+      }
+
+      const tRes = await fetch("/api/teachers", { cache: "no-store" });
+      if (!tRes.ok) throw new Error(await tRes.text());
+      setTeachers((await tRes.json()) as Teacher[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete teacher");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <TopBar title="Teachers" subtitle="Manage your team" showAccountInTitle={false} />
@@ -194,6 +217,14 @@ export default function TeachersPage() {
                     >
                       Edit
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 text-red-600 hover:bg-red-50"
+                      onClick={() => deleteTeacher(t)}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -247,12 +278,7 @@ export default function TeachersPage() {
                           size="sm"
                           variant="outline"
                           className="text-red-600 hover:bg-red-50"
-                          onClick={async () => {
-                            if (!confirm(`Delete teacher ${t.name}?`)) return;
-                            await fetch(`/api/teachers/${t.id}`, { method: "DELETE" });
-                            const tRes = await fetch("/api/teachers", { cache: "no-store" });
-                            if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
-                          }}
+                          onClick={() => deleteTeacher(t)}
                         >
                           Delete
                         </Button>
