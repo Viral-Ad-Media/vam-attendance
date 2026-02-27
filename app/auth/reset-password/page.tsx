@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
@@ -39,14 +40,16 @@ export default function ResetPasswordPage() {
 
     init();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active) return;
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        setLinkReady(Boolean(session));
-        setError("");
-        setCheckingLink(false);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event: AuthChangeEvent, session: Session | null) => {
+        if (!active) return;
+        if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+          setLinkReady(Boolean(session));
+          setError("");
+          setCheckingLink(false);
+        }
       }
-    });
+    );
 
     return () => {
       active = false;
