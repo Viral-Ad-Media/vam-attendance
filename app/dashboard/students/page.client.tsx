@@ -29,12 +29,19 @@ type Student = {
 type Teacher = { id: string; name: string };
 type Course = { id: string; title: string; modality: "group" | "1on1" };
 type Session = { id: string; title?: string | null; starts_at: string };
+type Enrollment = {
+  id: string;
+  student_id: string;
+  course_id: string;
+  status: "active" | "paused" | "completed" | "dropped";
+  enrolled_at?: string;
+};
 
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [courses, setCourses] = React.useState<Course[]>([]);
-  const [enrollments, setEnrollments] = React.useState<any[]>([]);
+  const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
@@ -93,7 +100,7 @@ export default function StudentsPage() {
         const sData = (await sRes.json()) as Student[];
         const tData = (await tRes.json()) as Teacher[];
         const cData = (await cRes.json()) as Course[];
-        const eData = (await eRes.json()) as any[];
+        const eData = (await eRes.json()) as Enrollment[];
         const ssData = (await ssRes.json()) as Session[];
         setStudents(sData);
         setTeachers(tData);
@@ -102,7 +109,7 @@ export default function StudentsPage() {
         setSessions(ssData);
         if (sData.length) {
           setEnrollStudentId(sData[0].id);
-          const existing = eData.filter((e: any) => e.student_id === sData[0].id).map((e: any) => e.course_id);
+          const existing = eData.filter((e) => e.student_id === sData[0].id).map((e) => e.course_id);
           setEnrollCourseIds(existing.length ? existing : cData[0] ? [cData[0].id] : []);
         }
       } catch (err) {
@@ -142,8 +149,12 @@ export default function StudentsPage() {
         ]);
         if (!attRes.ok) throw new Error(await attRes.text());
         if (!enRes.ok) throw new Error(await enRes.text());
-        setDetailAttendance((await attRes.json()) as any[]);
-        setDetailEnrollments((await enRes.json()) as any[]);
+        setDetailAttendance(
+          (await attRes.json()) as { id: string; session_id: string; status: string; noted_at?: string }[]
+        );
+        setDetailEnrollments(
+          (await enRes.json()) as { id: string; course_id: string; status: string; enrolled_at?: string }[]
+        );
       } catch (err) {
         setDetailError(err instanceof Error ? err.message : "Failed to load details");
       } finally {
@@ -185,7 +196,7 @@ export default function StudentsPage() {
         fetch("/api/enrollments", { cache: "no-store" }),
       ]);
       if (sRes.ok) setStudents((await sRes.json()) as Student[]);
-      if (eRes.ok) setEnrollments((await eRes.json()) as any[]);
+      if (eRes.ok) setEnrollments((await eRes.json()) as Enrollment[]);
     } catch (err) {
       setEnrollError(err instanceof Error ? err.message : "Failed to enroll student");
     } finally {
@@ -269,7 +280,7 @@ export default function StudentsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                setDetailStudent(s);
+                                setEnrollStudentId(s.id);
                                 setOpenEnroll(true);
                               }}
                             >
@@ -326,7 +337,7 @@ export default function StudentsPage() {
                           variant="outline"
                           className="flex-1"
                           onClick={() => {
-                            setDetailStudent(s);
+                            setEnrollStudentId(s.id);
                             setOpenEnroll(true);
                           }}
                         >

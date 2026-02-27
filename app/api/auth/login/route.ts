@@ -3,6 +3,20 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
+type MetadataMap = Record<string, unknown>;
+
+function asMetadataMap(input: unknown): MetadataMap {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return input as MetadataMap;
+  }
+  return {};
+}
+
+function readString(map: MetadataMap, key: string): string | null {
+  const value = map[key];
+  return typeof value === "string" ? value : null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
@@ -42,10 +56,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const meta = data.user?.app_metadata || {};
-    const userMeta = data.user?.user_metadata || {};
-    const orgId = (meta as any).org_id || (userMeta as any).default_org_id || null;
-    const orgName = (meta as any).org_name || (userMeta as any).org_name || "Primary Organization";
+    const appMeta = asMetadataMap(data.user?.app_metadata);
+    const userMeta = asMetadataMap(data.user?.user_metadata);
+    const orgId = readString(appMeta, "org_id") || readString(userMeta, "default_org_id") || null;
+    const orgName = readString(appMeta, "org_name") || readString(userMeta, "org_name") || "Primary Organization";
     if (orgId) {
       cookieStore.set("vam_active_org", String(orgId), {
         path: "/",

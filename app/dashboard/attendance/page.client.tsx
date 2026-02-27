@@ -264,6 +264,7 @@ function AttendancePage() {
   const [editAttendStatus, setEditAttendStatus] =
     React.useState<Status>("present");
   const [editAttendKey, setEditAttendKey] = React.useState<{
+    id: string;
     session_id: string;
     student_id: string;
   } | null>(null);
@@ -286,8 +287,7 @@ function AttendancePage() {
   }>({ open: false });
   const [confirmAttendance, setConfirmAttendance] = React.useState<{
     open: boolean;
-    session_id?: string;
-    student_id?: string;
+    id?: string;
     label?: string;
   }>({ open: false });
 
@@ -536,9 +536,8 @@ function AttendancePage() {
       .select("teacher_id")
       .eq("student_id", s.id)
       .limit(1);
-    setEditSTeacherId(
-      data && data.length ? (data[0] as any).teacher_id : ""
-    );
+    const teacherRow = data?.[0] as { teacher_id?: string } | undefined;
+    setEditSTeacherId(teacherRow?.teacher_id ?? "");
 
     setOpenEditStudent(true);
   };
@@ -620,6 +619,7 @@ function AttendancePage() {
 
   const onOpenEditAttendance = (a: Attendance) => {
     setEditAttendKey({
+      id: a.id,
       session_id: a.session_id,
       student_id: a.student_id,
     });
@@ -629,45 +629,43 @@ function AttendancePage() {
     setOpenEditAttendance(true);
   };
   const saveEditAttendance = async () => {
-    if (!sb) return;
     if (!editAttendKey) return;
     const changedKey =
       editAttendKey.session_id !== editAttendSessionId ||
       editAttendKey.student_id !== editAttendStudentId;
     if (changedKey) {
-      const { error: delErr } = await sb
-        .from("attendance")
-        .delete()
-        .match({
-          session_id: editAttendKey.session_id,
-          student_id: editAttendKey.student_id,
-        });
-      if (delErr) {
-        console.error(delErr);
+      const delRes = await fetch(`/api/attendance/${editAttendKey.id}`, {
+        method: "DELETE",
+      });
+      if (!delRes.ok) {
+        console.error(await delRes.text());
         return;
       }
-      const { error: insErr } = await sb.from("attendance").insert({
-        session_id: editAttendSessionId,
-        student_id: editAttendStudentId,
-        status: editAttendStatus,
+      const insRes = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: editAttendSessionId,
+          student_id: editAttendStudentId,
+          status: editAttendStatus,
+        }),
       });
-      if (insErr) {
-        console.error(insErr);
+      if (!insRes.ok) {
+        console.error(await insRes.text());
         return;
       }
     } else {
-      const { error } = await sb
-        .from("attendance")
-        .update({ status: editAttendStatus })
-        .match({
-          session_id: editAttendSessionId,
-          student_id: editAttendStudentId,
-        });
-      if (error) {
-        console.error(error);
+      const updRes = await fetch(`/api/attendance/${editAttendKey.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: editAttendStatus }),
+      });
+      if (!updRes.ok) {
+        console.error(await updRes.text());
         return;
       }
     }
+    await reload();
     setOpenEditAttendance(false);
     setEditAttendKey(null);
     setEditAttendSessionId("");
@@ -688,12 +686,10 @@ function AttendancePage() {
     if (!sb || !id) return;
     await sb.from("sessions").delete().eq("id", id);
   };
-  const doDeleteAttendance = async (sid?: string, stid?: string) => {
-    if (!sb || !sid || !stid) return;
-    await sb
-      .from("attendance")
-      .delete()
-      .match({ session_id: sid, student_id: stid });
+  const doDeleteAttendance = async (id?: string) => {
+    if (!id) return;
+    await fetch(`/api/attendance/${id}`, { method: "DELETE" });
+    await reload();
   };
 
   /* ------------ Charts data ------------ */
@@ -998,7 +994,7 @@ function AttendancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {attendance.map((a) => {
+                    {filteredAttendance.map((a) => {
                       const sess = sessionMap.get(a.session_id);
                       const stu = students.find((s) => s.id === a.student_id);
                       return (
@@ -1032,8 +1028,7 @@ function AttendancePage() {
                                 onClick={() =>
                                   setConfirmAttendance({
                                     open: true,
-                                    session_id: a.session_id,
-                                    student_id: a.student_id,
+                                    id: a.id,
                                     label: `${stu?.name ?? "Student"} • ${
                                       sess?.title ?? "Session"
                                     }`,
@@ -1047,7 +1042,7 @@ function AttendancePage() {
                         </tr>
                       );
                     })}
-                    {!attendance.length && (
+                    {!filteredAttendance.length && (
                       <tr>
                         <td
                           className="py-6 text-center text-slate-500"
@@ -1562,12 +1557,7 @@ function AttendancePage() {
             Remove attendance for <b>{confirmAttendance.label}</b>?
           </span>
         }
-        onConfirm={() =>
-          doDeleteAttendance(
-            confirmAttendance.session_id,
-            confirmAttendance.student_id
-          )
-        }
+        onConfirm={() => doDeleteAttendance(confirmAttendance.id)}
         danger
       />
     </div>

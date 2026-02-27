@@ -164,7 +164,7 @@ export default function TeachersPage() {
                   className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-fuchsia-100 text-fuchsia-700 flex items-center justify=center font-semibold">
+                    <div className="h-10 w-10 rounded-full bg-fuchsia-100 text-fuchsia-700 flex items-center justify-center font-semibold">
                       <Users className="h-5 w-5" />
                     </div>
                     <div>
@@ -385,7 +385,7 @@ export default function TeachersPage() {
                             selected ? prev.filter((id) => id !== s.id) : [...prev, s.id]
                           );
                         }}
-                        className={`flex items=center gap-1 rounded-full border px-2 py-1 text-xs ${
+                        className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${
                           selected
                             ? "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
                             : "border-slate-200 bg-white text-slate-700"
@@ -445,6 +445,24 @@ export default function TeachersPage() {
                       body: JSON.stringify(payload),
                     });
                     if (!res.ok) throw new Error(await res.text());
+                    const createdCourse = (await res.json()) as { id: string };
+
+                    if (courseSelectedStudents.length) {
+                      const enrollRes = await fetch("/api/enrollments", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(
+                          courseSelectedStudents.map((studentId) => ({
+                            student_id: studentId,
+                            course_id: createdCourse.id,
+                            teacher_id: courseLeadTeacher || null,
+                            status: "active" as const,
+                          }))
+                        ),
+                      });
+                      if (!enrollRes.ok) throw new Error(await enrollRes.text());
+                    }
+
                     setCourseSuccess("Course created");
                     setCourseTitle("");
                     setCourseType("");

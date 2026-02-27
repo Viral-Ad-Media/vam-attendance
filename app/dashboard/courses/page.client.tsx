@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Users, Loader2 } from "lucide-react";
-import Link from "next/link";
 
 type Course = {
   id: string;
@@ -83,8 +82,6 @@ export default function CoursesPage() {
   const [editSelectedStudents, setEditSelectedStudents] = React.useState<string[]>([]);
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
-  const [openCourseDetail, setOpenCourseDetail] = React.useState(false);
-  const [detailCourse, setDetailCourse] = React.useState<Course | null>(null);
 
   const loadAll = React.useCallback(async () => {
     try {
@@ -151,11 +148,22 @@ export default function CoursesPage() {
   });
 
   const saveCourse = async () => {
-    if (!editCourseId) return;
     setCourseSaving(true);
     setCourseError(null);
     try {
-      const payload: any = {
+      const payload: {
+        title: string;
+        description: string | null;
+        modality: "group" | "1on1";
+        lead_teacher_id: string | null;
+        course_type: string | null;
+        duration_weeks: number | null;
+        sessions_per_week: number | null;
+        meeting_days?: number[];
+        max_students: number | null;
+        starts_at: string | null;
+        ends_at: string | null;
+      } = {
         title: editTitle.trim(),
         description: editDescription.trim() || null,
         modality: editModality,
@@ -168,8 +176,12 @@ export default function CoursesPage() {
         starts_at: editStartsAt ? new Date(editStartsAt).toISOString() : null,
         ends_at: editEndsAt ? new Date(editEndsAt).toISOString() : null,
       };
-      const res = await fetch(`/api/courses/${editCourseId}`, {
-        method: "PATCH",
+
+      const isEdit = Boolean(editCourseId);
+      const route = isEdit ? `/api/courses/${editCourseId}` : "/api/courses";
+      const method = isEdit ? "PATCH" : "POST";
+      const res = await fetch(route, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -183,7 +195,10 @@ export default function CoursesPage() {
         }
         return;
       }
-      const currentEnrollments = enrollments.filter((en) => en.course_id === editCourseId);
+      const savedCourse = (await res.json()) as Course;
+      const targetCourseId = editCourseId ?? savedCourse.id;
+
+      const currentEnrollments = enrollments.filter((en) => en.course_id === targetCourseId);
       const existingStudentIds = currentEnrollments.map((en) => en.student_id);
       const toAdd = editSelectedStudents.filter((sid) => !existingStudentIds.includes(sid));
       const toRemove = currentEnrollments.filter((en) => !editSelectedStudents.includes(en.student_id));
@@ -194,7 +209,7 @@ export default function CoursesPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             student_id: sid,
-            course_id: editCourseId,
+            course_id: targetCourseId,
             status: "active",
             teacher_id: editLeadTeacher || null,
           }),
@@ -202,9 +217,11 @@ export default function CoursesPage() {
         if (!addRes.ok) throw new Error(await addRes.text());
       }
 
-      for (const en of toRemove) {
-        const delRes = await fetch(`/api/enrollments/${en.id}`, { method: "DELETE" });
-        if (!delRes.ok) throw new Error(await delRes.text());
+      if (isEdit) {
+        for (const en of toRemove) {
+          const delRes = await fetch(`/api/enrollments/${en.id}`, { method: "DELETE" });
+          if (!delRes.ok) throw new Error(await delRes.text());
+        }
       }
 
       await loadAll();
@@ -343,12 +360,6 @@ export default function CoursesPage() {
                         Starts {new Date(course.starts_at).toLocaleDateString()}
                       </p>
                     )}
-                    <Link
-                      href={`/dashboard/courses/${course.id}`}
-                      className="mt-3 inline-flex items-center text-xs font-semibold text-fuchsia-700 hover:underline"
-                    >
-                      View details →
-                    </Link>
                   </div>
                 );
               })}

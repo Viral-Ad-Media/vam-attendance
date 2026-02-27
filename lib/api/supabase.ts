@@ -9,9 +9,30 @@ export type RouteContext = {
   orgId: string;
 };
 
+type MetadataMap = Record<string, unknown>;
+
+function asMetadataMap(input: unknown): MetadataMap {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return input as MetadataMap;
+  }
+  return {};
+}
+
+function readString(map: MetadataMap, key: string): string | null {
+  const value = map[key];
+  return typeof value === "string" ? value : null;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
 export async function getRouteContext(): Promise<RouteContext> {
   const cookieStore = await cookies();
-  const cookieOrg = cookieStore.get("vam_active_org")?.value || null;
+  const rawCookieOrg = cookieStore.get("vam_active_org")?.value || null;
+  const cookieOrg = rawCookieOrg && isUuid(rawCookieOrg) ? rawCookieOrg : null;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -38,9 +59,9 @@ export async function getRouteContext(): Promise<RouteContext> {
     throw new ApiError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
-  const meta = user.app_metadata || {};
-  const userMeta = user.user_metadata || {};
-  let orgId = (meta as any).org_id || (userMeta as any).default_org_id || cookieOrg;
+  const appMeta = asMetadataMap(user.app_metadata);
+  const userMeta = asMetadataMap(user.user_metadata);
+  let orgId = readString(appMeta, "org_id") || readString(userMeta, "default_org_id") || cookieOrg;
 
   // Fallback: pick the first org the user owns if metadata/cookie missing.
   if (!orgId) {
@@ -93,10 +114,39 @@ export async function getRouteContext(): Promise<RouteContext> {
     throw new ApiError("Organization not set for user", 400, "ORG_NOT_SET");
   }
 
+  // Never trust cookie/metadata alone: verify user can access this org.
+  const { data: membershipRow, error: membershipError } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (membershipError) {
+    throw membershipError;
+  }
+
+  if (!membershipRow) {
+    const { data: ownerRow, error: ownerError } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("id", orgId)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    if (ownerError) {
+      throw ownerError;
+    }
+    if (!ownerRow) {
+      throw new ApiError("Forbidden: organization access denied", 403, "ORG_ACCESS_DENIED");
+    }
+  }
+
   // Fetch session after authenticating user to keep downstream shape
   const {
     data: { session },
   } = await supabase.auth.getSession();
+  if (!session) {
+    throw new ApiError("Unauthorized", 401, "UNAUTHENTICATED");
+  }
 
-  return { supabase, session: session!, orgId: String(orgId) };
+  return { supabase, session, orgId: String(orgId) };
 }

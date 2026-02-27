@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 export default function OverviewPage() {
   const { stats, sessions } = useDashboardData();
+  const [nowMs] = React.useState(() => Date.now());
 
   const healthLabel =
     stats.avgAttendanceRate >= 90
@@ -37,8 +38,8 @@ export default function OverviewPage() {
       sessions
         .slice()
         .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
-        .filter((s) => new Date(s.starts_at).getTime() >= Date.now()),
-    [sessions]
+        .filter((s) => new Date(s.starts_at).getTime() >= nowMs),
+    [sessions, nowMs]
   );
   const nextSession = upcomingSessions[0];
 

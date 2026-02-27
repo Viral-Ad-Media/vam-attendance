@@ -12,14 +12,29 @@ const enrollmentSchema = z.object({
   status: z.enum(["active", "paused", "completed", "dropped"]).optional(),
 });
 
-export async function GET() {
+const enrollmentBatchSchema = z.array(enrollmentSchema).min(1).max(200);
+
+export async function GET(request: Request) {
   try {
     const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get("student_id");
+    const courseId = searchParams.get("course_id");
+    const teacherId = searchParams.get("teacher_id");
+    const status = searchParams.get("status");
+
+    let query = supabase
       .from("enrollments")
       .select("*, student_id, course_id, teacher_id")
       .eq("org_id", orgId)
       .order("enrolled_at", { ascending: false });
+
+    if (studentId) query = query.eq("student_id", studentId);
+    if (courseId) query = query.eq("course_id", courseId);
+    if (teacherId) query = query.eq("teacher_id", teacherId);
+    if (status) query = query.eq("status", status);
+
+    const { data, error } = await query;
     if (error) throw error;
     return NextResponse.json(data ?? []);
   } catch (error) {
@@ -39,19 +54,26 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const payload = enrollmentSchema.parse(body);
+    const payloads = Array.isArray(body) ? enrollmentBatchSchema.parse(body) : [enrollmentSchema.parse(body)];
     const { supabase, session, orgId } = await getRouteContext();
+    const rows = payloads.map((payload) => ({ ...payload, org_id: orgId }));
+
     const { data, error } = await supabase
       .from("enrollments")
-      .insert([{ ...payload, org_id: orgId }])
-      .select()
-      .single();
+      .upsert(rows, { onConflict: "org_id,student_id,course_id" })
+      .select();
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "create", "enrollment", data.id, {
-      student_id: data.student_id,
-      course_id: data.course_id,
+
+    await logAudit(supabase, orgId, session.user.id, "create", "enrollment", data?.[0]?.id, {
+      count: rows.length,
+      student_ids: rows.map((r) => r.student_id),
+      course_ids: rows.map((r) => r.course_id),
     });
-    return NextResponse.json(data, { status: 201 });
+
+    if (rows.length === 1) {
+      return NextResponse.json(data?.[0] ?? null, { status: 201 });
+    }
+    return NextResponse.json(data ?? [], { status: 201 });
   } catch (error) {
     return respondWithError(error, { action: "create-enrollment" });
   }
