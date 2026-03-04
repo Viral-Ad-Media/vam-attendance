@@ -4,6 +4,7 @@ import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { getServiceClient } from "@/lib/supabase/service";
 import { sendTeacherSetupEmail } from "@/lib/api/teacher-setup-email";
+import { ApiError } from "@/lib/api/errors";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -11,6 +12,23 @@ const updateSchema = z.object({
   user_id: z.string().uuid().optional(),
   sendPasswordSetup: z.boolean().optional(),
 });
+
+function getSetupEmailErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.code === "TEACHER_SETUP_EMAIL_NOT_CONFIGURED") {
+      return "Email provider is not configured. Set RESEND_API_KEY and TEACHER_SETUP_EMAIL_FROM.";
+    }
+    if (error.code === "TEACHER_SETUP_LINK_GENERATION_FAILED") {
+      return "Could not generate the teacher setup link.";
+    }
+    if (error.code === "TEACHER_SETUP_EMAIL_SEND_FAILED") {
+      return "Email provider rejected the message. Check sender domain and API key.";
+    }
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Unknown setup email error.";
+}
 
 function handleError(error: unknown) {
   if (error instanceof z.ZodError) {
@@ -104,6 +122,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const orgName = orgData?.name ?? null;
 
     let setupEmailSent = false;
+    let setupEmailError: string | null = null;
     if (sendPasswordSetup) {
       try {
         await sendTeacherSetupEmail({
@@ -115,14 +134,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         setupEmailSent = true;
       } catch (setupError) {
         console.error("Teacher password setup email failed", setupError);
+        setupEmailError = getSetupEmailErrorMessage(setupError);
       }
     }
 
     await logAudit(supabase, orgId, session.user.id, "update", "teacher", id, {
       ...normalizedUpdates,
       setup_email_sent: setupEmailSent,
+      setup_email_error: setupEmailError,
     });
-    return NextResponse.json({ ...data, setup_email_sent: setupEmailSent });
+    return NextResponse.json({
+      ...data,
+      setup_email_sent: setupEmailSent,
+      setup_email_error: setupEmailError,
+    });
   } catch (error) {
     return handleError(error);
   }

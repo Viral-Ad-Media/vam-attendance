@@ -15,6 +15,23 @@ const teacherSchema = z.object({
   user_id: z.string().uuid().optional(),
 });
 
+function getSetupEmailErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.code === "TEACHER_SETUP_EMAIL_NOT_CONFIGURED") {
+      return "Email provider is not configured. Set RESEND_API_KEY and TEACHER_SETUP_EMAIL_FROM.";
+    }
+    if (error.code === "TEACHER_SETUP_LINK_GENERATION_FAILED") {
+      return "Could not generate the teacher setup link.";
+    }
+    if (error.code === "TEACHER_SETUP_EMAIL_SEND_FAILED") {
+      return "Email provider rejected the message. Check sender domain and API key.";
+    }
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Unknown setup email error.";
+}
+
 export async function GET() {
   try {
     const { supabase, orgId } = await getRouteContext();
@@ -150,6 +167,7 @@ export async function POST(request: Request) {
     }
 
     let setupEmailSent = false;
+    let setupEmailError: string | null = null;
     if (sendPasswordSetup) {
       try {
         await sendTeacherSetupEmail({
@@ -161,6 +179,7 @@ export async function POST(request: Request) {
         setupEmailSent = true;
       } catch (setupError) {
         console.error("Teacher password setup email failed", setupError);
+        setupEmailError = getSetupEmailErrorMessage(setupError);
       }
     }
 
@@ -168,8 +187,12 @@ export async function POST(request: Request) {
       email: data.email,
       user_id: authUserId,
       setup_email_sent: setupEmailSent,
+      setup_email_error: setupEmailError,
     });
-    return NextResponse.json({ ...data, setup_email_sent: setupEmailSent }, { status: 201 });
+    return NextResponse.json(
+      { ...data, setup_email_sent: setupEmailSent, setup_email_error: setupEmailError },
+      { status: 201 }
+    );
   } catch (error) {
     return respondWithError(error, { action: "create-teacher" });
   }

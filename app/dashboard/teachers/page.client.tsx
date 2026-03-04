@@ -22,6 +22,12 @@ type Teacher = {
   created_at?: string | null;
 };
 type Student = { id: string; name: string };
+type TeacherMutationResponse = {
+  setup_email_sent?: boolean;
+  setup_email_error?: string | null;
+  error?: string;
+  message?: string;
+};
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
@@ -579,7 +585,7 @@ export default function TeachersPage() {
                         sendPasswordSetup: sendTeacherSetupLink,
                       }),
                     });
-                    const data = await res.json();
+                    const data = (await res.json()) as TeacherMutationResponse;
                     if (!res.ok) throw new Error(data.error || "Failed to create teacher");
                     setNewTeacherName("");
                     setNewTeacherEmail("");
@@ -589,7 +595,11 @@ export default function TeachersPage() {
                     if (data.setup_email_sent) {
                       alert("Teacher created and password setup email sent.");
                     } else if (sendTeacherSetupLink) {
-                      alert("Teacher created. Setup email could not be sent, please retry from Edit.");
+                      alert(
+                        `Teacher created. Setup email could not be sent${
+                          data.setup_email_error ? `: ${data.setup_email_error}` : "."
+                        }`
+                      );
                     }
                     const tRes = await fetch("/api/teachers", { cache: "no-store" });
                     if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
@@ -677,13 +687,17 @@ export default function TeachersPage() {
                         sendPasswordSetup: editTeacherSendSetup,
                       }),
                     });
-                    const data = await res.json();
+                    const data = (await res.json()) as TeacherMutationResponse;
                     if (!res.ok) throw new Error(data.error || "Failed to update teacher");
                     setOpenEditTeacher(false);
                     if (data.setup_email_sent) {
                       alert("Teacher updated and password setup email sent.");
                     } else if (editTeacherSendSetup) {
-                      alert("Teacher updated. Setup email could not be sent.");
+                      alert(
+                        `Teacher updated. Setup email could not be sent${
+                          data.setup_email_error ? `: ${data.setup_email_error}` : "."
+                        }`
+                      );
                     }
                     const tRes = await fetch("/api/teachers", { cache: "no-store" });
                     if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
