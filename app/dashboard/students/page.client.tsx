@@ -165,32 +165,62 @@ export default function StudentsPage() {
   }, [detailStudent]);
 
   const saveEnrollment = async () => {
-    if (!enrollStudentId || !enrollCourseIds.length) return;
+    if (!enrollStudentId) return;
     setEnrollSaving(true);
     setEnrollError(null);
     setEnrollSuccess(null);
     try {
-      const payload = enrollCourseIds.map((course_id) => ({
-        student_id: enrollStudentId,
-        course_id,
-        status: enrollStatus,
-      }));
-      const res = await fetch("/api/enrollments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        try {
-          const parsed = JSON.parse(text);
-          setEnrollError(parsed.error || parsed.message || "Failed to enroll student");
-        } catch {
-          setEnrollError(text || "Failed to enroll student");
+      const selected = new Set(enrollCourseIds);
+      const existing = enrollments.filter((e) => e.student_id === enrollStudentId);
+      const toUnenroll = existing.filter((e) => !selected.has(e.course_id));
+
+      if (enrollCourseIds.length) {
+        const payload = enrollCourseIds.map((course_id) => ({
+          student_id: enrollStudentId,
+          course_id,
+          status: enrollStatus,
+        }));
+        const res = await fetch("/api/enrollments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          try {
+            const parsed = JSON.parse(text);
+            setEnrollError(parsed.error || parsed.message || "Failed to update enrollments");
+          } catch {
+            setEnrollError(text || "Failed to update enrollments");
+          }
+          return;
         }
-        return;
       }
-      setEnrollSuccess("Student enrolled successfully");
+
+      for (const en of toUnenroll) {
+        const delRes = await fetch(`/api/enrollments/${en.id}`, { method: "DELETE" });
+        if (!delRes.ok) {
+          const text = await delRes.text();
+          try {
+            const parsed = JSON.parse(text);
+            setEnrollError(parsed.error || parsed.message || "Failed to unenroll student");
+          } catch {
+            setEnrollError(text || "Failed to unenroll student");
+          }
+          return;
+        }
+      }
+
+      if (!enrollCourseIds.length && toUnenroll.length) {
+        setEnrollSuccess("Student unenrolled from all courses");
+      } else if (toUnenroll.length) {
+        setEnrollSuccess("Enrollments updated successfully");
+      } else if (enrollCourseIds.length) {
+        setEnrollSuccess("Student enrolled successfully");
+      } else {
+        setEnrollSuccess("No enrollment changes made");
+      }
+
       const [sRes, eRes] = await Promise.all([
         fetch("/api/students", { cache: "no-store" }),
         fetch("/api/enrollments", { cache: "no-store" }),
@@ -198,7 +228,7 @@ export default function StudentsPage() {
       if (sRes.ok) setStudents((await sRes.json()) as Student[]);
       if (eRes.ok) setEnrollments((await eRes.json()) as Enrollment[]);
     } catch (err) {
-      setEnrollError(err instanceof Error ? err.message : "Failed to enroll student");
+      setEnrollError(err instanceof Error ? err.message : "Failed to update enrollments");
     } finally {
       setEnrollSaving(false);
     }
@@ -662,6 +692,9 @@ export default function StudentsPage() {
                 onChange={(e) => setEnrollCourseSearch(e.target.value)}
                 className="h-9"
               />
+              <p className="text-xs text-slate-500">
+                Select courses to keep enrolled. Unselect a course to unenroll.
+              </p>
 
               <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto rounded-md border border-slate-200 p-2">
                 {courses
@@ -711,8 +744,8 @@ export default function StudentsPage() {
               <Button variant="outline" onClick={() => setOpenEnroll(false)}>
                 Cancel
               </Button>
-              <Button disabled={enrollSaving || !enrollStudentId || !enrollCourseIds.length} onClick={saveEnrollment}>
-                {enrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              <Button disabled={enrollSaving || !enrollStudentId} onClick={saveEnrollment}>
+                {enrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
               </Button>
             </div>
           </div>

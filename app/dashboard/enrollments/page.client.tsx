@@ -42,6 +42,7 @@ export default function EnrollmentsPage() {
   const [editEnrollStatus, setEditEnrollStatus] = React.useState<Enrollment["status"]>("active");
   const [enrollmentSaving, setEnrollmentSaving] = React.useState(false);
   const [enrollmentError, setEnrollmentError] = React.useState<string | null>(null);
+  const [deletingEnrollmentId, setDeletingEnrollmentId] = React.useState<string | null>(null);
 
   const loadAll = React.useCallback(async () => {
     try {
@@ -122,6 +123,41 @@ export default function EnrollmentsPage() {
     }
   };
 
+  const deleteEnrollment = async (enrollment: Enrollment) => {
+    const studentName = studentById.get(enrollment.student_id) ?? "this student";
+    const courseTitle = courseById.get(enrollment.course_id) ?? "this course";
+    const ok = confirm(`Unenroll ${studentName} from ${courseTitle}?`);
+    if (!ok) return;
+
+    try {
+      setDeletingEnrollmentId(enrollment.id);
+      setError(null);
+      setEnrollmentError(null);
+      const res = await fetch(`/api/enrollments/${enrollment.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          throw new Error(parsed.error || parsed.message || "Failed to unenroll student");
+        } catch {
+          throw new Error(text || "Failed to unenroll student");
+        }
+      }
+
+      if (editEnrollmentId === enrollment.id) {
+        setOpenEditEnrollment(false);
+        setEditEnrollmentId(null);
+      }
+      await loadAll();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to unenroll student";
+      setEnrollmentError(msg);
+      setError(msg);
+    } finally {
+      setDeletingEnrollmentId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <TopBar title="Enrollments" subtitle="Manage course enrollments" showAccountInTitle={false} />
@@ -171,18 +207,33 @@ export default function EnrollmentsPage() {
                       <td className="py-2 pr-3">{en.teacher_id ? teacherById.get(en.teacher_id) ?? "—" : "Unassigned"}</td>
                       <td className="py-2 pr-3 capitalize">{en.status}</td>
                       <td className="py-2 pr-0 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditEnrollmentId(en.id);
-                            setEditEnrollTeacher(en.teacher_id || null);
-                            setEditEnrollStatus(en.status);
-                            setOpenEditEnrollment(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
+                        <div className="inline-flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditEnrollmentId(en.id);
+                              setEditEnrollTeacher(en.teacher_id || null);
+                              setEditEnrollStatus(en.status);
+                              setOpenEditEnrollment(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            disabled={deletingEnrollmentId === en.id}
+                            onClick={() => void deleteEnrollment(en)}
+                          >
+                            {deletingEnrollmentId === en.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Unenroll"
+                            )}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -251,13 +302,36 @@ export default function EnrollmentsPage() {
                 {enrollmentError}
               </div>
             )}
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenEditEnrollment(false)}>
+            <div className="mt-4 flex items-center justify-between gap-2">
+              {editEnrollmentId ? (
+                <Button
+                  variant="outline"
+                  className="text-red-600 hover:bg-red-50"
+                  disabled={deletingEnrollmentId === editEnrollmentId || enrollmentSaving}
+                  onClick={() => {
+                    if (!editEnrollmentId) return;
+                    const current = enrollments.find((en) => en.id === editEnrollmentId);
+                    if (!current) return;
+                    void deleteEnrollment(current);
+                  }}
+                >
+                  {deletingEnrollmentId === editEnrollmentId ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Unenroll"
+                  )}
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setOpenEditEnrollment(false)}>
                 Cancel
-              </Button>
-              <Button disabled={enrollmentSaving} onClick={saveEnrollment}>
-                {enrollmentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-              </Button>
+                </Button>
+                <Button disabled={enrollmentSaving} onClick={saveEnrollment}>
+                  {enrollmentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
