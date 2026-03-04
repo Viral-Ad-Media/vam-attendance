@@ -538,7 +538,7 @@ export default function CoursesPage() {
                           }}
                           className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${
                             selected
-                              ? "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
+                              ? "border-sky-200 bg-sky-50 text-sky-700"
                               : "border-slate-200 bg-white text-slate-700"
                           }`}
                         >

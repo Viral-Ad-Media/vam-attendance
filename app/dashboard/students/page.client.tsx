@@ -353,7 +353,7 @@ export default function StudentsPage() {
                   {filtered.map((s) => (
                     <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-fuchsia-100 text-sm font-semibold text-fuchsia-700">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
                           <GraduationCap className="h-4 w-4" />
                         </div>
                         <div>
@@ -683,7 +683,7 @@ export default function StudentsPage() {
                         }}
                         className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
                           selected
-                            ? "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
+                            ? "border-sky-200 bg-sky-50 text-sky-700"
                             : "border-slate-200 bg-white text-slate-700"
                         }`}
                       >

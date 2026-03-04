@@ -49,25 +49,25 @@ export function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-3">
+    <header className="sticky top-0 z-50 w-full border-b border-white/70 bg-white/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg min-w-0">
-          <div className="h-8 w-8 rounded-md bg-gradient-to-r from-fuchsia-600 to-cyan-600" />
+        <Link href="/" className="flex min-w-0 items-center gap-2.5 font-bold text-lg">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-sky-600 via-blue-600 to-emerald-500 shadow-sm" />
           <span className="hidden sm:inline truncate">VAM Attendance</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1 rounded-xl border border-white/70 bg-white/70 p-1 shadow-sm">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                "rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
                 isActive(item.href)
-                  ? "bg-slate-100 text-slate-900"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               )}
             >
               {item.label}
@@ -81,13 +81,13 @@ export function Header() {
             <>
               <Link
                 href="/login"
-                className="hidden sm:inline-flex px-3 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
+                className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 sm:inline-flex"
               >
                 Login
               </Link>
               <Link
                 href="/signup"
-                className="hidden xs:inline-flex px-3 py-2 rounded-md text-sm font-medium bg-gradient-to-r from-fuchsia-600 to-cyan-600 text-white hover:opacity-90 transition"
+                className="hidden items-center rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 xs:inline-flex"
               >
                 Get Started
               </Link>
@@ -97,14 +97,14 @@ export function Header() {
           {loggedIn && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="hidden sm:inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-sm hover:bg-slate-50">
+                <button className="hidden items-center gap-2 rounded-full border border-white/75 bg-white/85 px-2.5 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-white sm:inline-flex">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="/avatar.png" alt="Profile" />
                     <AvatarFallback>
                       <User className="h-4 w-4" />
                     </AvatarFallback>
                   </Avatar>
-                  <span className="font-medium text-slate-800">Account</span>
+                  <span>Account</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
@@ -134,7 +134,7 @@ export function Header() {
 
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-md hover:bg-slate-100"
+            className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 md:hidden"
             aria-label="Toggle navigation"
             aria-expanded={mobileMenuOpen}
           >
@@ -145,7 +145,7 @@ export function Header() {
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 shadow-md">
+        <div className="border-t border-slate-100 bg-white/95 px-4 py-3 shadow-md backdrop-blur md:hidden">
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
               <Link
@@ -153,10 +153,10 @@ export function Header() {
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                  "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
                   isActive(item.href)
-                    ? "bg-slate-100 text-slate-900"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 )}
               >
                 {item.label}
@@ -167,14 +167,14 @@ export function Header() {
                 <Link
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
                 >
                   Login
                 </Link>
                 <Link
                   href="/signup"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-cyan-600 text-center shadow-sm"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm"
                 >
                   Get Started
                 </Link>
@@ -185,21 +185,21 @@ export function Header() {
                 <Link
                   href="/dashboard"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/dashboard/profile"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
                 >
                   Profile
                 </Link>
                 <Link
                   href="/dashboard/settings"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
                 >
                   Account settings
                 </Link>
@@ -210,7 +210,7 @@ export function Header() {
                     } catch {}
                     window.location.href = "/login";
                   }}
-                  className="px-4 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 text-left"
+                  className="rounded-lg px-4 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
                 >
                   Logout
                 </button>

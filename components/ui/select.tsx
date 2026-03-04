@@ -38,15 +38,13 @@ const SelectTrigger = React.forwardRef<
       data-size={size}
       className={cn(
         // base
-        "flex w-fit items-center justify-between gap-2 whitespace-nowrap rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none",
+        "flex w-fit items-center justify-between gap-2 whitespace-nowrap rounded-xl border bg-white/90 px-3.5 py-2 text-sm shadow-sm transition-[color,box-shadow,border-color] outline-none",
         // states
         "border-input focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         "aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive/20",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        // dark tweak
-        "dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:focus-visible:ring-destructive/40",
         // sizing
-        "data-[size=default]:h-9 data-[size=sm]:h-8",
+        "data-[size=default]:h-10 data-[size=sm]:h-9",
         // placeholders & icons
         "data-[placeholder]:text-muted-foreground",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -82,7 +80,7 @@ const SelectContent = React.forwardRef<
         data-slot="select-content"
         className={cn(
           // layout + surface
-          "z-[80] relative min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+          "z-[80] relative min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-xl border border-white/75 bg-popover/95 text-popover-foreground shadow-[0_16px_30px_-22px_rgba(15,23,42,0.5)] backdrop-blur-sm",
           // animations
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -124,7 +122,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn("px-2 py-1.5 text-xs text-muted-foreground", className)}
+      className={cn("px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground", className)}
       {...props}
     />
   );
@@ -140,8 +138,8 @@ const SelectItem = React.forwardRef<
       ref={ref}
       data-slot="select-item"
       className={cn(
-        "relative flex w-full select-none items-center gap-2 rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none",
-        "focus:bg-accent focus:text-accent-foreground",
+        "relative flex w-full select-none items-center gap-2 rounded-lg py-2 pl-2.5 pr-8 text-sm outline-none",
+        "focus:bg-accent focus:text-accent-foreground data-[state=checked]:bg-secondary",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className
       )}

@@ -55,9 +55,9 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         aria-disabled={disabled || undefined}
         onClick={toggle}
         className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border transition-colors",
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border transition-colors shadow-inner",
           on
-            ? "bg-emerald-500/90 border-emerald-600"
+            ? "bg-sky-500/90 border-sky-600"
             : "bg-slate-200 border-slate-300",
           disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-105",
           className

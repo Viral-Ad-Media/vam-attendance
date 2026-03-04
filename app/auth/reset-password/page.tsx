@@ -1,10 +1,10 @@
 "use client";
 
-import { Header } from "@/components/layout/Header";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { Header } from "@/components/layout/Header";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
@@ -66,12 +66,10 @@ export default function ResetPasswordPage() {
       setError("This password link is not active. Request a new one.");
       return;
     }
-
     if (password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
     }
-
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -97,35 +95,34 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <Header />
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
-            <h1 className="mb-2 text-3xl font-bold text-slate-900">Set a new password</h1>
-            <p className="text-slate-600">Choose a strong password for your teacher account.</p>
+      <div className="marketing-shell flex min-h-[calc(100vh-64px)] items-center justify-center py-10">
+        <div className="glass-card w-full max-w-md p-6 sm:p-7">
+          <div className="mb-7 text-center">
+            <h1 className="text-3xl font-semibold text-slate-900">Set a new password</h1>
+            <p className="mt-2 text-sm text-slate-600">Choose a strong password for your account.</p>
           </div>
 
           {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </div>
           )}
-
           {message && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
               {message}
             </div>
           )}
 
           {checkingLink ? (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
               Validating your password link...
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-900">
+                <label htmlFor="password" className="mb-2 block text-sm font-semibold text-slate-800">
                   New Password
                 </label>
                 <input
@@ -134,13 +131,12 @@ export default function ResetPasswordPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-fuchsia-600 focus:border-transparent"
+                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                   required
                 />
               </div>
-
               <div>
-                <label htmlFor="confirmPassword" className="mb-2 block text-sm font-medium text-slate-900">
+                <label htmlFor="confirmPassword" className="mb-2 block text-sm font-semibold text-slate-800">
                   Confirm Password
                 </label>
                 <input
@@ -149,15 +145,14 @@ export default function ResetPasswordPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-fuchsia-600 focus:border-transparent"
+                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                   required
                 />
               </div>
-
               <button
                 type="submit"
                 disabled={loading || !linkReady}
-                className="w-full rounded-lg bg-gradient-to-r from-fuchsia-600 to-cyan-600 px-4 py-2 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
               >
                 {loading ? "Updating password..." : "Update password"}
               </button>
@@ -166,7 +161,7 @@ export default function ResetPasswordPage() {
 
           <p className="mt-6 text-center text-sm text-slate-600">
             Need a new link?{" "}
-            <Link href="/forgot-password" className="font-semibold text-fuchsia-600 hover:text-fuchsia-700">
+            <Link href="/forgot-password" className="font-semibold text-sky-700 hover:text-sky-800">
               Request reset email
             </Link>
           </p>

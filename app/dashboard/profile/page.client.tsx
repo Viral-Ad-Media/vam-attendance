@@ -29,7 +29,7 @@ export default function ProfilePage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-600 to-cyan-600 text-2xl font-bold text-white mb-4">
+                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-sky-600 to-emerald-500 text-2xl font-bold text-white mb-4">
                   {profile.avatar}
                 </div>
                 <h2 className="text-xl font-semibold text-slate-900 mb-1">{profile.name}</h2>
@@ -65,7 +65,7 @@ export default function ProfilePage() {
                       type="text"
                       value={profile.name}
                       onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-600"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
 
@@ -77,7 +77,7 @@ export default function ProfilePage() {
                       type="email"
                       value={profile.email}
                       onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-600"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
 
@@ -89,7 +89,7 @@ export default function ProfilePage() {
                       type="tel"
                       value={profile.phone}
                       onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-600"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
 
@@ -101,7 +101,7 @@ export default function ProfilePage() {
                       type="text"
                       value={profile.location}
                       onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-600"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
 
@@ -112,7 +112,7 @@ export default function ProfilePage() {
                     <textarea
                       value={profile.bio}
                       onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-600"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                       rows={3}
                     />
                   </div>

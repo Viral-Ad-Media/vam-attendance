@@ -12,13 +12,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100/70 via-slate-50 to-white">
       {/* Provide account context to BOTH sidebar and pages */}
       <AccountProvider>
         {/* Mobile nav trigger */}
         <button
           type="button"
-          className="fixed left-3 top-3 z-30 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur transition hover:-translate-y-[1px] hover:shadow-md lg:hidden"
+          className="fixed left-3 top-3 z-30 inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:-translate-y-[1px] hover:shadow-md lg:hidden"
           onClick={() => setMobileNavOpen(true)}
         >
           <Menu className="h-4 w-4" />
@@ -51,12 +51,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="mx-auto flex w-full max-w-[1600px]">
           {/* Minimal, slim sidebar */}
-          <aside className="hidden shrink-0 border-r border-slate-200 bg-white/70 backdrop-blur lg:block">
+          <aside className="hidden shrink-0 border-r border-slate-200/60 bg-white/50 backdrop-blur lg:block">
             <Sidebar />
           </aside>
 
           {/* Content with slightly tighter gutters (but still breathing) */}
-          <main className="flex-1 min-w-0 px-3 pb-6 pt-14 sm:px-5 lg:px-7 lg:pt-4">
+          <main className="flex-1 min-w-0 px-3 pb-7 pt-14 sm:px-5 lg:px-7 lg:pt-5">
             {/* Thresholds state for TopBar menu + tables/charts */}
             
               {children}

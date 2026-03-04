@@ -1,7 +1,6 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, BarChart3, Users, Zap, Shield, Plug, Download, Lock } from "lucide-react";
+import { BarChart3, Clock, Download, Lock, Plug, Shield, Users, Zap } from "lucide-react";
 
 export const metadata = {
   title: "Features - VAM Attendance",
@@ -11,90 +10,79 @@ export const metadata = {
 const features = [
   {
     icon: Clock,
-    title: "Real-Time Tracking",
-    description: "Mark attendance instantly with real-time synchronization across all devices.",
-    color: "text-fuchsia-600",
+    title: "Real-time tracking",
+    description: "Mark attendance from web and keep records instantly synchronized.",
+    tone: "text-sky-600",
   },
   {
     icon: BarChart3,
-    title: "Detailed Reports",
-    description: "Generate comprehensive attendance reports with trends and analytics.",
-    color: "text-cyan-600",
+    title: "Insightful reporting",
+    description: "Review trends, anomalies, and attendance health across classes.",
+    tone: "text-emerald-600",
   },
   {
     icon: Users,
-    title: "Multi-User Support",
-    description: "Manage multiple classes, teachers, and students from one platform.",
-    color: "text-purple-600",
+    title: "Multi-role access",
+    description: "Support admins, teachers, and operational teams in one workspace.",
+    tone: "text-indigo-600",
   },
   {
     icon: Zap,
-    title: "Fast & Reliable",
-    description: "Built for performance with 99.9% uptime guarantee.",
-    color: "text-yellow-600",
+    title: "Fast workflows",
+    description: "Keep daily operations quick with low-friction UI and shortcuts.",
+    tone: "text-amber-600",
   },
   {
     icon: Shield,
-    title: "Secure & Private",
-    description: "Enterprise-grade security with end-to-end encryption.",
-    color: "text-green-600",
+    title: "Secure platform",
+    description: "Protect records with role-based controls and account safeguards.",
+    tone: "text-teal-600",
   },
   {
     icon: Plug,
-    title: "Easy Integration",
-    description: "Seamlessly integrate with your existing systems and tools.",
-    color: "text-blue-600",
+    title: "Easy integrations",
+    description: "Fit into your existing process without changing your entire stack.",
+    tone: "text-blue-600",
   },
   {
     icon: Download,
-    title: "Data Export",
-    description: "Export data in multiple formats (CSV, Excel, PDF).",
-    color: "text-indigo-600",
+    title: "Export tools",
+    description: "Export attendance data for reports, audits, and external sharing.",
+    tone: "text-emerald-600",
   },
   {
     icon: Lock,
-    title: "Access Control",
-    description: "Fine-grained permissions and role-based access control.",
-    color: "text-red-600",
+    title: "Permission controls",
+    description: "Manage who can view, edit, and administer sensitive attendance data.",
+    tone: "text-slate-700",
   },
 ];
 
 export default function FeaturesPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <Header />
 
-      {/* Hero Section */}
-      <section className="px-4 py-24 sm:px-6 sm:py-32 lg:px-8 bg-gradient-to-b from-slate-50 to-white">
-        <div className="mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-6">
-            Powerful Features for Every Need
-          </h1>
-          <p className="text-xl text-slate-600 mb-8">
-            Everything you need to manage attendance efficiently, from real-time tracking to detailed analytics.
-          </p>
-        </div>
+      <section className="marketing-shell marketing-section text-center">
+        <h1 className="soft-title">Everything your team needs, nothing they do not</h1>
+        <p className="soft-subtitle mx-auto mt-4 max-w-3xl">
+          VAM Attendance focuses on clear operations, reliable data capture, and readable reporting
+          for day-to-day academic workflows.
+        </p>
       </section>
 
-      {/* Features Grid */}
-      <section className="px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, idx) => {
-              const Icon = feature.icon;
-              return (
-                <Card key={idx} className="hover:shadow-lg transition">
-                  <CardContent className="pt-6">
-                    <Icon className={`h-10 w-10 ${feature.color} mb-4`} />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      {feature.title}
-                    </h3>
-                    <p className="text-slate-600">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+      <section className="marketing-shell pb-16 sm:pb-20 lg:pb-24">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <article key={feature.title} className="glass-card p-5">
+                <Icon className={`h-8 w-8 ${feature.tone}`} />
+                <h2 className="mt-4 text-lg font-semibold text-slate-900">{feature.title}</h2>
+                <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+              </article>
+            );
+          })}
         </div>
       </section>
 

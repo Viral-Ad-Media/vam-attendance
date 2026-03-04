@@ -45,7 +45,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-fuchsia-600" />
+              <Bell className="h-5 w-5 text-sky-600" />
               <div>
                 <CardTitle>Notifications</CardTitle>
                 <CardDescription>Manage how you receive updates</CardDescription>
@@ -111,7 +111,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <Lock className="h-5 w-5 text-cyan-600" />
+              <Lock className="h-5 w-5 text-emerald-600" />
               <div>
                 <CardTitle>Security</CardTitle>
                 <CardDescription>Manage your account security</CardDescription>
@@ -147,7 +147,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <Database className="h-5 w-5 text-purple-600" />
+              <Database className="h-5 w-5 text-indigo-600" />
               <div>
                 <CardTitle>Data Management</CardTitle>
                 <CardDescription>Manage your data and storage</CardDescription>
@@ -164,7 +164,7 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setSettings({ ...settings, dataRetention: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-600"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
               >
                 <option value="3months">3 months</option>
                 <option value="6months">6 months</option>

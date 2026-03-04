@@ -8,25 +8,26 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <Header />
 
-      <div className="px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl">
-          <h1 className="text-4xl font-bold text-slate-900 mb-8">Privacy Policy</h1>
+      <section className="marketing-shell marketing-section">
+        <div className="mx-auto max-w-4xl">
+          <div className="glass-card p-6 sm:p-8">
+            <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Privacy Policy</h1>
 
-          <div className="prose prose-slate max-w-none space-y-6">
+            <div className="prose prose-slate mt-8 max-w-none space-y-6">
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Introduction</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Introduction</h2>
               <p className="text-slate-600">
-                VAM Attendance ("we," "us," "our," or "Company") is committed to protecting your privacy.
+                VAM Attendance (&quot;we,&quot; &quot;us,&quot; &quot;our,&quot; or &quot;Company&quot;) is committed to protecting your privacy.
                 This Privacy Policy explains how we collect, use, disclose, and otherwise process personal
                 information in connection with our Services.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Information We Collect</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Information We Collect</h2>
               <p className="text-slate-600 mb-4">We collect information in the following ways:</p>
               <ul className="list-disc list-inside space-y-2 text-slate-600">
                 <li>Information you provide directly (name, email, phone)</li>
@@ -37,7 +38,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">How We Use Your Information</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">How We Use Your Information</h2>
               <p className="text-slate-600 mb-4">We use information for the following purposes:</p>
               <ul className="list-disc list-inside space-y-2 text-slate-600">
                 <li>Providing and improving our Services</li>
@@ -49,7 +50,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Data Security</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Data Security</h2>
               <p className="text-slate-600">
                 We implement appropriate technical and organizational measures to protect your personal
                 information against unauthorized access, alteration, disclosure, or destruction. However,
@@ -58,7 +59,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Your Rights</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Your Rights</h2>
               <p className="text-slate-600 mb-4">
                 Depending on your location, you may have certain rights regarding your personal information,
                 including:
@@ -73,7 +74,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Contact Us</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Contact Us</h2>
               <p className="text-slate-600">
                 If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
               </p>
@@ -87,19 +88,20 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Changes to This Privacy Policy</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Changes to This Privacy Policy</h2>
               <p className="text-slate-600">
                 We may update this Privacy Policy from time to time. We will notify you of any significant
-                changes by updating the "Last Modified" date of this Privacy Policy.
+                changes by updating the &quot;Last Modified&quot; date of this Privacy Policy.
               </p>
             </section>
 
             <div className="pt-8 border-t border-slate-200 text-sm text-slate-600">
               <p>Last Modified: December 8, 2024</p>
             </div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <Footer />
     </div>

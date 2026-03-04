@@ -5,13 +5,13 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-slate-200 bg-slate-50 py-12">
+    <footer className="border-t border-white/70 bg-white/75 py-14 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 mb-8">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 font-bold text-lg mb-4">
-              <div className="h-8 w-8 rounded-md bg-gradient-to-r from-fuchsia-600 to-cyan-600" />
+              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-sky-600 via-blue-600 to-emerald-500 shadow-sm" />
               <span>VAM Attendance</span>
             </div>
             <p className="text-sm text-slate-600">
@@ -82,7 +82,7 @@ export function Footer() {
         </div>
 
         {/* Bottom Section */}
-        <div className="border-t border-slate-200 pt-8 flex flex-col sm:flex-row items-center justify-between">
+        <div className="flex flex-col items-center justify-between border-t border-slate-200/80 pt-8 sm:flex-row">
           <p className="text-sm text-slate-600">
             © {currentYear} Viral Ad Media. All rights reserved.
           </p>
@@ -93,7 +93,7 @@ export function Footer() {
               href="https://twitter.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-600 hover:text-slate-900 transition"
+              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <Twitter className="h-5 w-5" />
             </a>
@@ -101,7 +101,7 @@ export function Footer() {
               href="https://github.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-600 hover:text-slate-900 transition"
+              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <Github className="h-5 w-5" />
             </a>
@@ -109,7 +109,7 @@ export function Footer() {
               href="https://linkedin.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-600 hover:text-slate-900 transition"
+              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <Linkedin className="h-5 w-5" />
             </a>

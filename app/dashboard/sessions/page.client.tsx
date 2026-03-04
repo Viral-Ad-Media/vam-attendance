@@ -275,12 +275,12 @@ export default function SessionsPage() {
                       key={key}
                       className={`min-h-[110px] rounded-lg border p-2 text-xs ${
                         inMonth ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"
-                      } ${isToday ? "ring-1 ring-fuchsia-500" : ""}`}
+                      } ${isToday ? "ring-1 ring-sky-500" : ""}`}
                     >
                       <div className="mb-1 flex items-center justify-between text-slate-600">
                         <span className="text-[11px] font-semibold">{date.getDate()}</span>
                         {isToday && (
-                          <span className="text-[10px] text-fuchsia-600 font-semibold">Today</span>
+                          <span className="text-[10px] text-sky-600 font-semibold">Today</span>
                         )}
                       </div>
                       <div className="space-y-1">

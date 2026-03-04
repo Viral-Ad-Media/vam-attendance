@@ -17,8 +17,8 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[10rem] overflow-hidden rounded-xl border bg-white p-1 shadow-lg outline-none",
-        "border-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/85",
+        "z-50 min-w-[12rem] overflow-hidden rounded-xl border bg-white/95 p-1.5 shadow-[0_20px_36px_-24px_rgba(15,23,42,0.65)] outline-none",
+        "border-white/75 backdrop-blur supports-[backdrop-filter]:bg-white/90",
         className
       )}
       {...props}
@@ -34,8 +34,8 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-lg px-2 py-2 text-sm outline-none",
-      "text-slate-700 hover:bg-slate-50 focus:bg-slate-50",
+      "relative flex cursor-pointer select-none items-center rounded-lg px-2.5 py-2 text-sm font-medium outline-none",
+      "text-slate-700 hover:bg-slate-100 focus:bg-slate-100",
       inset && "pl-8",
       className
     )}
@@ -50,7 +50,7 @@ const DropdownMenuLabel = React.forwardRef<
 >(({ className, inset, ...props }: { inset?: boolean } & React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label>, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn("px-2 py-1.5 text-xs font-semibold text-slate-500", inset && "pl-8", className)}
+    className={cn("px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500", inset && "pl-8", className)}
     {...props}
   />
 ));

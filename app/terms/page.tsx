@@ -8,16 +8,17 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <Header />
 
-      <div className="px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl">
-          <h1 className="text-4xl font-bold text-slate-900 mb-8">Terms of Service</h1>
+      <section className="marketing-shell marketing-section">
+        <div className="mx-auto max-w-4xl">
+          <div className="glass-card p-6 sm:p-8">
+            <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Terms of Service</h1>
 
-          <div className="prose prose-slate max-w-none space-y-6">
+            <div className="prose prose-slate mt-8 max-w-none space-y-6">
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Agreement to Terms</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Agreement to Terms</h2>
               <p className="text-slate-600">
                 By accessing and using the VAM Attendance service, you accept and agree to be bound by and
                 comply with the terms and provision of this agreement. If you do not agree to abide by the
@@ -26,7 +27,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Use License</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Use License</h2>
               <p className="text-slate-600 mb-4">
                 Permission is granted to temporarily download one copy of the materials (information or
                 software) on VAM Attendance for personal, non-commercial transitory viewing only.
@@ -39,15 +40,15 @@ export default function TermsPage() {
                 <li>Modifying or copying the materials</li>
                 <li>Using the materials for any commercial purpose or for any public display</li>
                 <li>Attempting to decompile or reverse engineer any software contained on the Service</li>
-                <li>Transferring the materials to another person or "mirroring" the materials on any server</li>
+                <li>Transferring the materials to another person or &quot;mirroring&quot; the materials on any server</li>
                 <li>Removing any copyright or other proprietary notations from the materials</li>
               </ul>
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Disclaimer</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Disclaimer</h2>
               <p className="text-slate-600">
-                The materials on VAM Attendance's website and service are provided on an 'as is' basis.
+                The materials on VAM Attendance&apos;s website and service are provided on an &apos;as is&apos; basis.
                 VAM Attendance makes no warranties, expressed or implied, and hereby disclaims and negates
                 all other warranties including, without limitation, implied warranties or conditions of
                 merchantability, fitness for a particular purpose, or non-infringement of intellectual
@@ -56,7 +57,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Limitations</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Limitations</h2>
               <p className="text-slate-600">
                 In no event shall VAM Attendance or its suppliers be liable for any damages (including,
                 without limitation, damages for loss of data or profit, or due to business interruption)
@@ -67,7 +68,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Accuracy of Materials</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Accuracy of Materials</h2>
               <p className="text-slate-600">
                 The materials appearing on VAM Attendance could include technical, typographical, or
                 photographic errors. VAM Attendance does not warrant that any of the materials on its
@@ -77,17 +78,17 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Links</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Links</h2>
               <p className="text-slate-600">
                 VAM Attendance has not reviewed all of the sites linked to its website and is not
                 responsible for the contents of any such linked site. The inclusion of any link does not
                 imply endorsement by VAM Attendance of the site. Use of any such linked website is at the
-                user's own risk.
+                user&apos;s own risk.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Modifications</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Modifications</h2>
               <p className="text-slate-600">
                 VAM Attendance may revise these terms of service for its website at any time without notice.
                 By using this website, you are agreeing to be bound by the then current version of these
@@ -96,7 +97,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Governing Law</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Governing Law</h2>
               <p className="text-slate-600">
                 These terms and conditions are governed by and construed in accordance with the laws of the
                 United States, and you irrevocably submit to the exclusive jurisdiction of the courts in
@@ -105,7 +106,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Contact Information</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-900">Contact Information</h2>
               <p className="text-slate-600">
                 If you have any questions about these Terms of Service, please contact us at:
               </p>
@@ -121,9 +122,10 @@ export default function TermsPage() {
             <div className="pt-8 border-t border-slate-200 text-sm text-slate-600">
               <p>Last Modified: December 8, 2024</p>
             </div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <Footer />
     </div>

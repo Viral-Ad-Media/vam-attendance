@@ -124,11 +124,11 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
     onNavigate?.();
   };
 
-  const containerWidth = collapsed ? "w-[70px]" : "w-[248px]";
+  const containerWidth = collapsed ? "w-[72px]" : "w-[252px]";
 
   return (
     <aside className={cn("h-full", containerWidth, isMobile ? "" : "transition-[width] duration-200")}>
-      <div className="flex h-full flex-col gap-4 rounded-2xl border border-slate-200 bg-white/90 px-3 py-4 shadow-sm backdrop-blur">
+      <div className="flex h-full flex-col gap-4 rounded-2xl border border-white/80 bg-white/90 px-3 py-4 shadow-[0_10px_26px_-20px_rgba(15,23,42,0.65)] backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard"
@@ -136,7 +136,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
             title="VAM Attendance"
             onClick={handleNavigate}
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600 via-indigo-600 to-cyan-500 text-xs font-bold text-white shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-600 via-blue-600 to-emerald-500 text-xs font-bold text-white shadow-sm">
               VAM
             </div>
             {!collapsed && (
@@ -153,7 +153,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
               type="button"
               onClick={() => setCollapsed((v) => !v)}
               className={cn(
-                "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50",
+                "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100",
               )}
               title={collapsed ? "Expand" : "Collapse"}
             >
@@ -164,7 +164,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100"
               aria-label="Close menu"
             >
               <X className="h-4 w-4" />
@@ -175,8 +175,8 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
         <div className={cn("rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2", collapsed && "text-center")}>
           <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-600">
             {!collapsed && <span>Status</span>}
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-[3px] text-[11px] font-semibold text-emerald-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-[3px] text-[11px] font-semibold text-sky-700">
+              <span className="h-2 w-2 rounded-full bg-sky-500" />
               Live
             </span>
           </div>
@@ -196,7 +196,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
                   <Link
                     href={item.href || "#"}
                     className={cn(
-                      "group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition",
+                      "group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
                       active
                         ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-900/10"
                         : "text-slate-700 hover:bg-slate-100"
@@ -222,7 +222,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
                   type="button"
                   onClick={() => toggle(item.key)}
                   className={cn(
-                    "w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition",
+                    "w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
                     active
                       ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-900/10"
                       : "text-slate-700 hover:bg-slate-100"
@@ -254,7 +254,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
                           <Link
                             href={c.href}
                             className={cn(
-                              "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition",
+                              "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition",
                               childActive
                                 ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-900/10"
                                 : "text-slate-700 hover:bg-slate-100"
