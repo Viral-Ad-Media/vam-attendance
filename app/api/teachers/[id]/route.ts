@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { getServiceClient } from "@/lib/supabase/service";
+import { sendTeacherSetupEmail } from "@/lib/api/teacher-setup-email";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -12,17 +13,6 @@ const updateSchema = z.object({
   phone: z.string().optional(),
   sendPasswordSetup: z.boolean().optional(),
 });
-
-function getAppBaseUrl() {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (explicit) return explicit.replace(/\/+$/, "");
-
-  const vercel = process.env.VERCEL_URL?.trim();
-  if (!vercel) return undefined;
-
-  const normalized = vercel.startsWith("http") ? vercel : `https://${vercel}`;
-  return normalized.replace(/\/+$/, "");
-}
 
 function handleError(error: unknown) {
   if (error instanceof z.ZodError) {
@@ -111,16 +101,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
+    const { data: orgData } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+    const orgName = orgData?.name ?? null;
+
     let setupEmailSent = false;
     if (sendPasswordSetup) {
-      const appBaseUrl = getAppBaseUrl();
-      const { error: setupError } = await service.auth.resetPasswordForEmail(data.email, {
-        redirectTo: appBaseUrl ? `${appBaseUrl}/auth/reset-password` : undefined,
-      });
-      if (setupError) {
-        console.error("Teacher password setup email failed", setupError);
-      } else {
+      try {
+        await sendTeacherSetupEmail({
+          service,
+          teacherEmail: data.email,
+          teacherName: data.name,
+          organizationName: orgName,
+        });
         setupEmailSent = true;
+      } catch (setupError) {
+        console.error("Teacher password setup email failed", setupError);
       }
     }
 

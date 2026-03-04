@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { ApiError, respondWithError } from "@/lib/api/errors";
 import { getServiceClient } from "@/lib/supabase/service";
+import { sendTeacherSetupEmail } from "@/lib/api/teacher-setup-email";
 
 const teacherSchema = z.object({
   name: z.string().min(1),
@@ -19,17 +20,6 @@ const teacherSchema = z.object({
 function toOptionalText(value?: string) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
-}
-
-function getAppBaseUrl() {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (explicit) {
-    return explicit.replace(/\/+$/, "");
-  }
-  const vercel = process.env.VERCEL_URL?.trim();
-  if (!vercel) return undefined;
-  const normalized = vercel.startsWith("http") ? vercel : `https://${vercel}`;
-  return normalized.replace(/\/+$/, "");
 }
 
 export async function GET() {
@@ -171,14 +161,16 @@ export async function POST(request: Request) {
 
     let setupEmailSent = false;
     if (sendPasswordSetup) {
-      const appBaseUrl = getAppBaseUrl();
-      const { error: setupError } = await service.auth.resetPasswordForEmail(teacherEmail, {
-        redirectTo: appBaseUrl ? `${appBaseUrl}/auth/reset-password` : undefined,
-      });
-      if (setupError) {
-        console.error("Teacher password setup email failed", setupError);
-      } else {
+      try {
+        await sendTeacherSetupEmail({
+          service,
+          teacherEmail,
+          teacherName,
+          organizationName: orgName,
+        });
         setupEmailSent = true;
+      } catch (setupError) {
+        console.error("Teacher password setup email failed", setupError);
       }
     }
 

@@ -63,6 +63,10 @@ npm run dev
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes for signup/teacher/billing | Service role key for admin operations | Signup flow, teacher creation, Stripe, service client |
 | `NEXT_PUBLIC_APP_URL` | Recommended | Public base URL for redirects | Stripe checkout/portal, signup redirect |
 | `VERCEL_URL` | Optional | Vercel-provided URL fallback | Signup redirect |
+| `RESEND_API_KEY` | Optional (required for custom teacher setup email) | Resend API key used to send custom teacher setup emails | Teacher create/update password setup email |
+| `TEACHER_SETUP_EMAIL_FROM` | Optional (required with `RESEND_API_KEY`) | From address for teacher setup email, e.g. `VAM Attendance <no-reply@yourdomain.com>` | Teacher create/update password setup email |
+| `TEACHER_SETUP_EMAIL_REPLY_TO` | Optional | Reply-to address for teacher setup email | Teacher create/update password setup email |
+| `EMAIL_FROM` | Optional fallback | Fallback sender if `TEACHER_SETUP_EMAIL_FROM` is not set | Teacher setup email fallback sender |
 | `STRIPE_SECRET_KEY` | Optional | Stripe secret key | Billing endpoints |
 | `STRIPE_PRICE_ID` | Optional | Stripe price id for subscriptions | Checkout endpoint |
 | `STRIPE_WEBHOOK_SECRET` | Optional | Stripe webhook secret | Webhook endpoint |
@@ -120,6 +124,8 @@ All endpoints are JSON and org-scoped via Supabase RLS. Most endpoints use Zod v
 - `GET /api/teachers/:id`
 - `PATCH /api/teachers/:id`
 - `DELETE /api/teachers/:id`
+
+When `sendPasswordSetup` is enabled, teacher create/update now generates a recovery link with Supabase Admin API and sends a custom email through Resend (instead of Supabase default reset template).
 
 **Courses**
 - `GET /api/courses`
