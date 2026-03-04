@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 type Session = {
   id: string;
@@ -26,6 +26,12 @@ type Teacher = { id: string; name: string };
 type Course = { id: string; title: string; lead_teacher_id?: string | null };
 
 type Attendance = { session_id: string; status: string };
+type NewSessionPayload = {
+  teacher_id?: string;
+  course_id?: string;
+  title?: string;
+  starts_at: string;
+};
 
 export default function SessionsPage() {
   const [sessions, setSessions] = React.useState<Session[]>([]);
@@ -47,6 +53,18 @@ export default function SessionsPage() {
   const [newStartsAt, setNewStartsAt] = React.useState("");
   const [newSaving, setNewSaving] = React.useState(false);
   const [newError, setNewError] = React.useState<string | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = React.useState<string | null>(null);
+
+  const refreshSessionData = React.useCallback(async () => {
+    const [sRes, aRes] = await Promise.all([
+      fetch("/api/sessions", { cache: "no-store" }),
+      fetch("/api/attendance", { cache: "no-store" }),
+    ]);
+    if (!sRes.ok) throw new Error(await sRes.text());
+    if (!aRes.ok) throw new Error(await aRes.text());
+    setSessions((await sRes.json()) as Session[]);
+    setAttendance((await aRes.json()) as Attendance[]);
+  }, []);
 
   React.useEffect(() => {
     const load = async () => {
@@ -75,6 +93,38 @@ export default function SessionsPage() {
     };
     load();
   }, []);
+
+  const deleteSession = async (session: Session) => {
+    const label = session.title?.trim() || "Session";
+    const startsAt = new Date(session.starts_at).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const confirmed = confirm(`Delete "${label}" (${startsAt})?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingSessionId(session.id);
+      setError(null);
+      const res = await fetch(`/api/sessions/${session.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          throw new Error(parsed.error || parsed.message || "Failed to delete session");
+        } catch {
+          throw new Error(text || "Failed to delete session");
+        }
+      }
+      await refreshSessionData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete session");
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
 
   const tMap = React.useMemo(() => new Map(teachers.map((t) => [t.id, t.name])), [teachers]);
   const filteredSessions = React.useMemo(
@@ -179,6 +229,7 @@ export default function SessionsPage() {
                   <th className="py-2 pr-3">Starts</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Present / Total</th>
+                  <th className="py-2 pr-0 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -210,12 +261,27 @@ export default function SessionsPage() {
                       <td className="py-2 pr-3">
                         {present} / {total}
                       </td>
+                      <td className="py-2 pr-0 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:bg-red-50"
+                          disabled={deletingSessionId === s.id}
+                          onClick={() => void deleteSession(s)}
+                        >
+                          {deletingSessionId === s.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Delete"
+                          )}
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
                 {!filteredSessions.length && (
                   <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={4}>
+                    <td className="py-6 text-center text-slate-500" colSpan={6}>
                       No sessions yet.
                     </td>
                   </tr>
@@ -299,8 +365,23 @@ export default function SessionsPage() {
                               key={s.id}
                               className={`rounded border px-2 py-1 ${sessionSurfaceStyles[status]}`}
                             >
-                              <div className="text-[11px] font-semibold text-slate-800">
-                                {s.title ?? "Session"}
+                              <div className="flex items-start justify-between gap-1">
+                                <div className="text-[11px] font-semibold text-slate-800 line-clamp-2">
+                                  {s.title ?? "Session"}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="rounded p-0.5 text-red-600/80 hover:bg-red-50 hover:text-red-700"
+                                  aria-label="Delete session"
+                                  disabled={deletingSessionId === s.id}
+                                  onClick={() => void deleteSession(s)}
+                                >
+                                  {deletingSessionId === s.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3 w-3" />
+                                  )}
+                                </button>
                               </div>
                               <div className="flex items-center justify-between gap-2 text-[10px] text-slate-600">
                                 <span>{time}</span>
@@ -411,7 +492,7 @@ export default function SessionsPage() {
                   try {
                     setNewSaving(true);
                     setNewError(null);
-                    const payload: any = {
+                    const payload: NewSessionPayload = {
                       teacher_id: newTeacher || undefined,
                       course_id: newCourseId || undefined,
                       title: newTitle.trim() || undefined,
@@ -427,12 +508,7 @@ export default function SessionsPage() {
                     setNewTitle("");
                     setNewTeacher("");
                     setNewStartsAt("");
-                    const [sRes, aRes] = await Promise.all([
-                      fetch("/api/sessions", { cache: "no-store" }),
-                      fetch("/api/attendance", { cache: "no-store" }),
-                    ]);
-                    if (sRes.ok) setSessions((await sRes.json()) as Session[]);
-                    if (aRes.ok) setAttendance((await aRes.json()) as Attendance[]);
+                    await refreshSessionData();
                   } catch (err) {
                     setNewError(err instanceof Error ? err.message : "Failed to create session");
                   } finally {
