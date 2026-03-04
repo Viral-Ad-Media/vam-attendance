@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  course_id uuid REFERENCES courses(id) ON DELETE SET NULL,
+  course_id uuid REFERENCES courses(id) ON DELETE CASCADE,
   teacher_id uuid REFERENCES teachers(id) ON DELETE SET NULL,
   title text,
   starts_at timestamptz NOT NULL,

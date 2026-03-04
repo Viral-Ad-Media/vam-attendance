@@ -71,6 +71,22 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params;
     const { supabase, session, orgId } = await getRouteContext();
+
+    // Ensure related data is cleaned up with the course delete.
+    const { error: deleteSessionsError } = await supabase
+      .from("sessions")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("course_id", id);
+    if (deleteSessionsError) throw deleteSessionsError;
+
+    const { error: deleteEnrollmentsError } = await supabase
+      .from("enrollments")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("course_id", id);
+    if (deleteEnrollmentsError) throw deleteEnrollmentsError;
+
     const { error } = await supabase
       .from("courses")
       .delete()
