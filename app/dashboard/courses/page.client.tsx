@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Users, Loader2 } from "lucide-react";
+import { BookOpen, Users, Loader2, Trash2 } from "lucide-react";
 
 type Course = {
   id: string;
@@ -82,6 +82,7 @@ export default function CoursesPage() {
   const [editSelectedStudents, setEditSelectedStudents] = React.useState<string[]>([]);
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
+  const [deletingCourseId, setDeletingCourseId] = React.useState<string | null>(null);
 
   const loadAll = React.useCallback(async () => {
     try {
@@ -113,7 +114,6 @@ export default function CoursesPage() {
   }, [loadAll]);
 
   const teacherById = React.useMemo(() => new Map(teachers.map((t) => [t.id, t.name])), [teachers]);
-  const studentById = React.useMemo(() => new Map(students.map((s) => [s.id, s.name])), [students]);
 
   const courseStats = React.useMemo(() => {
     const map = new Map<string, { total: number; active: number }>();
@@ -235,6 +235,35 @@ export default function CoursesPage() {
     }
   };
 
+  const deleteCourse = async (course: Course) => {
+    const ok = confirm(`Delete course "${course.title}"? This action cannot be undone.`);
+    if (!ok) return;
+
+    try {
+      setDeletingCourseId(course.id);
+      setCourseError(null);
+      const res = await fetch(`/api/courses/${course.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          throw new Error(parsed.error || parsed.message || "Failed to delete course");
+        } catch {
+          throw new Error(text || "Failed to delete course");
+        }
+      }
+      if (editCourseId === course.id) {
+        setOpenEditCourse(false);
+        setEditCourseId(null);
+      }
+      await loadAll();
+    } catch (err) {
+      setCourseError(err instanceof Error ? err.message : "Failed to delete course");
+    } finally {
+      setDeletingCourseId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <TopBar title="Courses" subtitle="Manage courses and enrollments" showAccountInTitle={false} />
@@ -303,30 +332,45 @@ export default function CoursesPage() {
                         </div>
                         <p className="text-xs text-slate-500 capitalize">{course.modality}</p>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditCourseId(course.id);
-                          setEditTitle(course.title || "");
-                          setEditDescription(course.description || "");
-                          setEditModality(course.modality || "group");
-                          setEditLeadTeacher(course.lead_teacher_id || null);
-                          setEditType(course.course_type || "");
-                          setEditDuration(course.duration_weeks?.toString() || "");
-                          setEditMeetingDays(
-                            course.sessions_per_week ? defaultDaysFromCount(course.sessions_per_week) : []
-                          );
-                          setEditMaxStudents(course.max_students?.toString() || "");
-                          setEditStartsAt(toLocalInput(course.starts_at));
-                          setEditEndsAt(toLocalInput(course.ends_at));
-                          const existingEnrollments = enrollmentsByCourse.get(course.id) || [];
-                          setEditSelectedStudents(existingEnrollments.map((en) => en.student_id));
-                          setOpenEditCourse(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditCourseId(course.id);
+                            setEditTitle(course.title || "");
+                            setEditDescription(course.description || "");
+                            setEditModality(course.modality || "group");
+                            setEditLeadTeacher(course.lead_teacher_id || null);
+                            setEditType(course.course_type || "");
+                            setEditDuration(course.duration_weeks?.toString() || "");
+                            setEditMeetingDays(
+                              course.sessions_per_week ? defaultDaysFromCount(course.sessions_per_week) : []
+                            );
+                            setEditMaxStudents(course.max_students?.toString() || "");
+                            setEditStartsAt(toLocalInput(course.starts_at));
+                            setEditEndsAt(toLocalInput(course.ends_at));
+                            const existingEnrollments = enrollmentsByCourse.get(course.id) || [];
+                            setEditSelectedStudents(existingEnrollments.map((en) => en.student_id));
+                            setOpenEditCourse(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:bg-red-50"
+                          disabled={deletingCourseId === course.id}
+                          onClick={() => void deleteCourse(course)}
+                        >
+                          {deletingCourseId === course.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                     <p className="mt-2 text-xs text-slate-600 line-clamp-3">
                       {course.description || "No description"}
@@ -555,16 +599,39 @@ export default function CoursesPage() {
                 {courseError}
               </div>
             )}
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenEditCourse(false)}>
+            <div className="mt-4 flex items-center justify-between gap-2">
+              {editCourseId ? (
+                <Button
+                  variant="outline"
+                  className="text-red-600 hover:bg-red-50"
+                  disabled={deletingCourseId === editCourseId || courseSaving}
+                  onClick={() => {
+                    if (!editCourseId) return;
+                    const target = courses.find((c) => c.id === editCourseId);
+                    if (!target) return;
+                    void deleteCourse(target);
+                  }}
+                >
+                  {deletingCourseId === editCourseId ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Delete Course"
+                  )}
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setOpenEditCourse(false)}>
                 Cancel
-              </Button>
-              <Button
-                disabled={courseSaving || !editTitle.trim()}
-                onClick={saveCourse}
-              >
-                {courseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-              </Button>
+                </Button>
+                <Button
+                  disabled={courseSaving || !editTitle.trim()}
+                  onClick={saveCourse}
+                >
+                  {courseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
