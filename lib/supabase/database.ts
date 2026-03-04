@@ -60,8 +60,6 @@ export async function createTeacher(data: {
   name: string;
   email: string;
   user_id?: string;
-  department?: string;
-  phone?: string;
 }) {
   const supabase = await getBrowserSupabase();
   if (!supabase) throw new Error("Supabase client not initialized");

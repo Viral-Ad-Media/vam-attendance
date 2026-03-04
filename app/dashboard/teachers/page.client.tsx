@@ -19,8 +19,6 @@ type Teacher = {
   id: string;
   name: string;
   email: string;
-  department?: string | null;
-  phone?: string | null;
   created_at?: string | null;
 };
 type Student = { id: string; name: string };
@@ -92,7 +90,7 @@ export default function TeachersPage() {
   }, []);
 
   const filtered = teachers.filter((t) =>
-    [t.name, t.email, t.department, t.phone]
+    [t.name, t.email]
       .filter(Boolean)
       .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
   );
@@ -195,14 +193,7 @@ export default function TeachersPage() {
                       <p className="text-xs text-slate-600">{t.email}</p>
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-slate-600 space-y-1">
-                    <p>Department: {t.department ?? "—"}</p>
-                    <p>Phone: {t.phone ?? "—"}</p>
-                  </div>
                   <div className="mt-3 flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      Contact
-                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -242,8 +233,6 @@ export default function TeachersPage() {
                 <tr className="text-left text-slate-500">
                   <th className="py-2 pr-3">Name</th>
                   <th className="py-2 pr-3">Email</th>
-                  <th className="py-2 pr-3">Department</th>
-                  <th className="py-2 pr-3">Phone</th>
                   <th className="py-2 pr-0 text-right">Actions</th>
                 </tr>
               </thead>
@@ -257,8 +246,6 @@ export default function TeachersPage() {
                         <span>{t.email}</span>
                       </div>
                     </td>
-                    <td className="py-2 pr-3">{t.department ?? "—"}</td>
-                    <td className="py-2 pr-3">{t.phone ?? "—"}</td>
                     <td className="py-2 pr-0 text-right">
                       <div className="inline-flex gap-2">
                         <Button
@@ -288,7 +275,7 @@ export default function TeachersPage() {
                 ))}
                 {!filtered.length && (
                   <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={5}>
+                    <td className="py-6 text-center text-slate-500" colSpan={3}>
                       No teachers yet.
                     </td>
                   </tr>

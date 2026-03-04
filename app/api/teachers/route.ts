@@ -13,14 +13,7 @@ const teacherSchema = z.object({
   password: z.string().min(8).optional(),
   sendPasswordSetup: z.boolean().optional(),
   user_id: z.string().uuid().optional(),
-  department: z.string().optional(),
-  phone: z.string().optional(),
 });
-
-function toOptionalText(value?: string) {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
 
 export async function GET() {
   try {
@@ -123,7 +116,6 @@ export async function POST(request: Request) {
           org_id: orgId,
           email: teacherEmail,
           full_name: teacherName,
-          phone: toOptionalText(payload.phone),
           created_at: nowIso,
         },
       ],
@@ -146,8 +138,6 @@ export async function POST(request: Request) {
           name: teacherName,
           email: teacherEmail,
           user_id: authUserId,
-          department: toOptionalText(payload.department),
-          phone: toOptionalText(payload.phone),
           org_id: orgId,
         },
       ])

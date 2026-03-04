@@ -82,8 +82,6 @@ CREATE TABLE IF NOT EXISTS teachers (
   name text NOT NULL,
   email text NOT NULL,
   user_id uuid REFERENCES users(id) ON DELETE SET NULL,
-  department text,
-  phone text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   UNIQUE(org_id, email)
@@ -139,6 +137,10 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- Backfill columns for existing deployments
 ALTER TABLE students ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS country text;
+
+-- Remove legacy teacher columns for existing deployments
+ALTER TABLE teachers DROP COLUMN IF EXISTS department;
+ALTER TABLE teachers DROP COLUMN IF EXISTS phone;
 
 CREATE TABLE IF NOT EXISTS enrollments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

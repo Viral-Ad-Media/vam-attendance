@@ -9,8 +9,6 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
   user_id: z.string().uuid().optional(),
-  department: z.string().optional(),
-  phone: z.string().optional(),
   sendPasswordSetup: z.boolean().optional(),
 });
 
@@ -61,8 +59,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       ...teacherUpdates,
       name: teacherUpdates.name?.trim(),
       email: teacherUpdates.email?.trim().toLowerCase(),
-      department: teacherUpdates.department?.trim() || undefined,
-      phone: teacherUpdates.phone?.trim() || undefined,
     };
 
     const { data, error } = await supabase
@@ -84,11 +80,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         if (authUpdateError) throw authUpdateError;
       }
 
-      if (normalizedUpdates.email || normalizedUpdates.name || normalizedUpdates.phone) {
+      if (normalizedUpdates.email || normalizedUpdates.name) {
         const userProfilePatch = {
           ...(normalizedUpdates.email ? { email: normalizedUpdates.email } : {}),
           ...(normalizedUpdates.name ? { full_name: normalizedUpdates.name } : {}),
-          ...(normalizedUpdates.phone !== undefined ? { phone: normalizedUpdates.phone || null } : {}),
         };
         if (Object.keys(userProfilePatch).length) {
           const { error: profileUpdateError } = await service
