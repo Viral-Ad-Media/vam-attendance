@@ -20,6 +20,10 @@ const teacherAllowedRoutes = [
   "/dashboard/attendance",
   "/dashboard/sessions",
   "/dashboard/students",
+  "/dashboard/courses",
+  "/dashboard/enrollments",
+  "/dashboard/profile",
+  "/dashboard/settings",
 ];
 
 type MetadataMap = Record<string, unknown>;

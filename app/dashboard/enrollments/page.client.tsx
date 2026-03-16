@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 
-type Course = { id: string; title: string };
+type Course = { id: string; title: string; lead_teacher_id?: string | null };
 type Teacher = { id: string; name: string };
 type Student = { id: string; name: string };
 type Enrollment = {
@@ -36,6 +36,11 @@ export default function EnrollmentsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
 
+  const [openNewEnrollment, setOpenNewEnrollment] = React.useState(false);
+  const [newEnrollStudentId, setNewEnrollStudentId] = React.useState<string>("");
+  const [newEnrollCourseId, setNewEnrollCourseId] = React.useState<string>("");
+  const [newEnrollTeacher, setNewEnrollTeacher] = React.useState<string | null>(null);
+  const [newEnrollStatus, setNewEnrollStatus] = React.useState<Enrollment["status"]>("active");
   const [openEditEnrollment, setOpenEditEnrollment] = React.useState(false);
   const [editEnrollmentId, setEditEnrollmentId] = React.useState<string | null>(null);
   const [editEnrollTeacher, setEditEnrollTeacher] = React.useState<string | null>(null);
@@ -90,6 +95,55 @@ export default function EnrollmentsPage() {
       en.status.toLowerCase().includes(q)
     );
   });
+
+  const openCreateEnrollmentDialog = () => {
+    setEnrollmentError(null);
+    setOpenEditEnrollment(false);
+    setNewEnrollStudentId("");
+    setNewEnrollCourseId("");
+    setNewEnrollTeacher(null);
+    setNewEnrollStatus("active");
+    setOpenNewEnrollment(true);
+  };
+
+  const createEnrollment = async () => {
+    if (!newEnrollStudentId || !newEnrollCourseId) {
+      setEnrollmentError("Select a student and course before saving.");
+      return;
+    }
+
+    setEnrollmentSaving(true);
+    setEnrollmentError(null);
+    try {
+      const res = await fetch("/api/enrollments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_id: newEnrollStudentId,
+          course_id: newEnrollCourseId,
+          teacher_id: newEnrollTeacher || null,
+          status: newEnrollStatus,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          setEnrollmentError(parsed.error || parsed.message || "Failed to enroll student");
+        } catch {
+          setEnrollmentError(text || "Failed to enroll student");
+        }
+        return;
+      }
+
+      setOpenNewEnrollment(false);
+      await loadAll();
+    } catch (err) {
+      setEnrollmentError(err instanceof Error ? err.message : "Unexpected error creating enrollment");
+    } finally {
+      setEnrollmentSaving(false);
+    }
+  };
 
   const saveEnrollment = async () => {
     if (!editEnrollmentId) return;
@@ -180,12 +234,15 @@ export default function EnrollmentsPage() {
               <CardTitle className="text-sm font-semibold text-slate-800">Enrollments</CardTitle>
               <p className="text-xs text-slate-500">All students across courses</p>
             </div>
-            <Input
-              placeholder="Search student, course, teacher, status…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-9 w-[260px]"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="Search student, course, teacher, status…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-9 w-[260px]"
+              />
+              <Button onClick={openCreateEnrollmentDialog}>+ New Enrollment</Button>
+            </div>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -249,6 +306,103 @@ export default function EnrollmentsPage() {
             </table>
           </CardContent>
         </Card>
+      )}
+
+      {openNewEnrollment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenNewEnrollment(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">New Enrollment</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenNewEnrollment(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Select value={newEnrollStudentId || "none"} onValueChange={(value) => setNewEnrollStudentId(value === "none" ? "" : value)}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Student" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select student</SelectItem>
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id}>
+                      {student.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={newEnrollCourseId || "none"}
+                onValueChange={(value) => {
+                  const resolved = value === "none" ? "" : value;
+                  setNewEnrollCourseId(resolved);
+                  const course = courses.find((item) => item.id === resolved);
+                  setNewEnrollTeacher(course?.lead_teacher_id ?? null);
+                }}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Course" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select course</SelectItem>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={newEnrollTeacher || "none"}
+                onValueChange={(value) => setNewEnrollTeacher(value === "none" ? null : value)}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {teachers.map((teacher) => (
+                    <SelectItem key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={newEnrollStatus} onValueChange={(value: Enrollment["status"]) => setNewEnrollStatus(value)}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="dropped">Dropped</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {enrollmentError && (
+              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {enrollmentError}
+              </div>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenNewEnrollment(false)}>
+                Cancel
+              </Button>
+              <Button disabled={enrollmentSaving} onClick={createEnrollment}>
+                {enrollmentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {openEditEnrollment && (

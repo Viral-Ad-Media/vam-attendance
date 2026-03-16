@@ -4,7 +4,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, ClipboardList, Users } from "lucide-react";
+import { BookOpen, CalendarDays, ClipboardList, UserPlus, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -18,14 +18,22 @@ export default function TeacherDashboard() {
         <Card className="md:col-span-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold">Welcome back</CardTitle>
-            <p className="text-xs text-slate-200">View your sessions and mark attendance quickly.</p>
+            <p className="text-xs text-slate-200">
+              Run your classes end to end from here, from scheduling to enrollment.
+            </p>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
             <Button asChild className="bg-white text-slate-900 hover:bg-white/90">
               <Link href="/dashboard/attendance">Mark attendance</Link>
             </Button>
             <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/15">
-              <Link href="/dashboard/sessions">View sessions</Link>
+              <Link href="/dashboard/sessions">Add session</Link>
+            </Button>
+            <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/15">
+              <Link href="/dashboard/courses">Add course</Link>
+            </Button>
+            <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/15">
+              <Link href="/dashboard/enrollments">Enroll student</Link>
             </Button>
           </CardContent>
         </Card>
@@ -37,6 +45,12 @@ export default function TeacherDashboard() {
           <CardContent className="space-y-2 text-sm text-slate-700">
             <Link href="/dashboard/sessions" className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50">
               <CalendarDays className="h-4 w-4 text-slate-500" /> Upcoming sessions
+            </Link>
+            <Link href="/dashboard/courses" className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50">
+              <BookOpen className="h-4 w-4 text-slate-500" /> Manage courses
+            </Link>
+            <Link href="/dashboard/enrollments" className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50">
+              <UserPlus className="h-4 w-4 text-slate-500" /> Enroll students
             </Link>
             <Link href="/dashboard/attendance" className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50">
               <ClipboardList className="h-4 w-4 text-slate-500" /> Attendance calendar
