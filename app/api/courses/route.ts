@@ -7,16 +7,16 @@ import { respondWithError } from "@/lib/api/errors";
 
 const courseSchema = z.object({
   title: z.string().min(1),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   modality: z.enum(["group", "1on1"]),
   lead_teacher_id: z.string().uuid().optional().nullable(),
-  course_type: z.string().optional(),
-  duration_weeks: z.number().int().positive().optional(),
-  sessions_per_week: z.number().int().positive().optional(),
+  course_type: z.string().optional().nullable(),
+  duration_weeks: z.number().int().positive().optional().nullable(),
+  sessions_per_week: z.number().int().positive().optional().nullable(),
   meeting_days: z.array(z.number().int().min(0).max(6)).optional(), // 0=Sun..6=Sat
-  max_students: z.number().int().positive().optional(),
-  starts_at: z.string().datetime().optional(),
-  ends_at: z.string().datetime().optional(),
+  max_students: z.number().int().positive().optional().nullable(),
+  starts_at: z.string().datetime().optional().nullable(),
+  ends_at: z.string().datetime().optional().nullable(),
 });
 
 export async function GET() {

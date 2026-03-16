@@ -3,9 +3,11 @@
 
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,11 +15,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, UserPlus } from "lucide-react";
 
-type Course = { id: string; title: string; lead_teacher_id?: string | null };
+type Course = {
+  id: string;
+  title: string;
+  modality?: "group" | "1on1";
+  lead_teacher_id?: string | null;
+};
 type Teacher = { id: string; name: string };
-type Student = { id: string; name: string };
+type Student = { id: string; name: string; email?: string | null };
 type Enrollment = {
   id: string;
   course_id: string;
@@ -81,6 +88,9 @@ export default function EnrollmentsPage() {
   const teacherById = React.useMemo(() => new Map(teachers.map((t) => [t.id, t.name])), [teachers]);
   const studentById = React.useMemo(() => new Map(students.map((s) => [s.id, s.name])), [students]);
   const courseById = React.useMemo(() => new Map(courses.map((c) => [c.id, c.title])), [courses]);
+  const selectedNewStudent = students.find((student) => student.id === newEnrollStudentId) ?? null;
+  const selectedNewCourse = courses.find((course) => course.id === newEnrollCourseId) ?? null;
+  const selectedNewTeacher = teachers.find((teacher) => teacher.id === newEnrollTeacher) ?? null;
 
   const filtered = enrollments.filter((en) => {
     const q = query.trim().toLowerCase();
@@ -308,26 +318,56 @@ export default function EnrollmentsPage() {
         </Card>
       )}
 
-      {openNewEnrollment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenNewEnrollment(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">New Enrollment</h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenNewEnrollment(false)}
+      <CreationDialog
+        open={openNewEnrollment}
+        onOpenChange={setOpenNewEnrollment}
+        icon={UserPlus}
+        eyebrow="Enrollment Builder"
+        title="Create a clean, assignable enrollment"
+        description="Pair a student with the right course, align ownership, and save with the exact status you want reflected in reporting."
+        accent="amber"
+        className="sm:max-w-4xl"
+        stats={[
+          {
+            label: "Student",
+            value: selectedNewStudent?.name || "Not selected",
+            hint: selectedNewStudent?.email || "Choose who is joining",
+          },
+          {
+            label: "Course",
+            value: selectedNewCourse?.title || "Not selected",
+            hint: selectedNewCourse?.modality === "1on1" ? "1-on-1 format" : selectedNewCourse ? "Group format" : "Pick the destination course",
+          },
+          {
+            label: "Owner",
+            value: selectedNewTeacher?.name || "Unassigned",
+            hint: `Status: ${newEnrollStatus}`,
+          },
+        ]}
+        footer={
+          <div className="flex w-full items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpenNewEnrollment(false)}>
+              Cancel
+            </Button>
+            <Button disabled={enrollmentSaving} onClick={createEnrollment}>
+              {enrollmentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Enrollment"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4 lg:grid-cols-[1fr_0.95fr]">
+          <div className="space-y-4">
+            <CreationSection
+              eyebrow="Student"
+              title="Choose who is enrolling"
+              description="Pick the learner first so the rest of the record can follow naturally."
+            >
+              <Label>Student</Label>
+              <Select
+                value={newEnrollStudentId || "none"}
+                onValueChange={(value) => setNewEnrollStudentId(value === "none" ? "" : value)}
               >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-2">
-              <Select value={newEnrollStudentId || "none"} onValueChange={(value) => setNewEnrollStudentId(value === "none" ? "" : value)}>
-                <SelectTrigger className="h-9 w-full">
+                <SelectTrigger className="mt-2 h-11 w-full bg-white">
                   <SelectValue placeholder="Student" />
                 </SelectTrigger>
                 <SelectContent>
@@ -339,6 +379,14 @@ export default function EnrollmentsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </CreationSection>
+
+            <CreationSection
+              eyebrow="Placement"
+              title="Select the destination course"
+              description="The course choice can prefill the assigned teacher when a lead teacher already exists."
+            >
+              <Label>Course</Label>
               <Select
                 value={newEnrollCourseId || "none"}
                 onValueChange={(value) => {
@@ -348,7 +396,7 @@ export default function EnrollmentsPage() {
                   setNewEnrollTeacher(course?.lead_teacher_id ?? null);
                 }}
               >
-                <SelectTrigger className="h-9 w-full">
+                <SelectTrigger className="mt-2 h-11 w-full bg-white">
                   <SelectValue placeholder="Course" />
                 </SelectTrigger>
                 <SelectContent>
@@ -360,50 +408,98 @@ export default function EnrollmentsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select
-                value={newEnrollTeacher || "none"}
-                onValueChange={(value) => setNewEnrollTeacher(value === "none" ? null : value)}
-              >
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Teacher" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {teachers.map((teacher) => (
-                    <SelectItem key={teacher.id} value={teacher.id}>
-                      {teacher.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={newEnrollStatus} onValueChange={(value: Enrollment["status"]) => setNewEnrollStatus(value)}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="dropped">Dropped</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {enrollmentError && (
-              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {enrollmentError}
+              {selectedNewCourse ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <CreationChip accent="amber">
+                    {selectedNewCourse.modality === "group" ? "Group course" : "1-on-1 course"}
+                  </CreationChip>
+                  {selectedNewCourse.lead_teacher_id ? (
+                    <CreationChip accent="emerald">Lead teacher available</CreationChip>
+                  ) : (
+                    <CreationChip accent="sky">No lead teacher set</CreationChip>
+                  )}
+                </div>
+              ) : null}
+            </CreationSection>
+          </div>
+
+          <div className="space-y-4">
+            <CreationSection
+              eyebrow="Ownership"
+              title="Assign responsibility and status"
+              description="Override the course lead only when a different teacher should own the enrollment."
+            >
+              <div className="grid gap-4">
+                <div>
+                  <Label>Teacher</Label>
+                  <Select
+                    value={newEnrollTeacher || "none"}
+                    onValueChange={(value) => setNewEnrollTeacher(value === "none" ? null : value)}
+                  >
+                    <SelectTrigger className="mt-2 h-11 w-full bg-white">
+                      <SelectValue placeholder="Teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select
+                    value={newEnrollStatus}
+                    onValueChange={(value: Enrollment["status"]) => setNewEnrollStatus(value)}
+                  >
+                    <SelectTrigger className="mt-2 h-11 w-full bg-white">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="dropped">Dropped</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenNewEnrollment(false)}>
-                Cancel
-              </Button>
-              <Button disabled={enrollmentSaving} onClick={createEnrollment}>
-                {enrollmentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll"}
-              </Button>
-            </div>
+            </CreationSection>
+
+            <CreationSection
+              eyebrow="Preview"
+              title="Enrollment snapshot"
+              description="A final glance at what this record will look like when you create it."
+            >
+              <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]">
+                <p className="text-base font-semibold text-slate-900">
+                  {`${selectedNewStudent?.name || "Student"} -> ${selectedNewCourse?.title || "Course"}`}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  {selectedNewTeacher?.name || "No teacher assigned yet"} will own this enrollment record.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <CreationChip accent="amber">{newEnrollStatus}</CreationChip>
+                  {selectedNewCourse ? (
+                    <CreationChip accent="sky">
+                      {selectedNewCourse.modality === "group" ? "Group" : "1-on-1"}
+                    </CreationChip>
+                  ) : null}
+                </div>
+              </div>
+            </CreationSection>
           </div>
         </div>
-      )}
+
+        {enrollmentError && (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {enrollmentError}
+          </div>
+        )}
+      </CreationDialog>
 
       {openEditEnrollment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditEnrollment(false)}>

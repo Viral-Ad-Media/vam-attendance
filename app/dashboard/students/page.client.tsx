@@ -3,9 +3,11 @@
 
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -26,7 +28,6 @@ type Student = {
   created_at?: string | null;
 };
 
-type Teacher = { id: string; name: string };
 type Course = { id: string; title: string; modality: "group" | "1on1" };
 type Session = { id: string; title?: string | null; starts_at: string };
 type Enrollment = {
@@ -39,7 +40,6 @@ type Enrollment = {
 
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
-  const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [courses, setCourses] = React.useState<Course[]>([]);
   const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
@@ -59,6 +59,8 @@ export default function StudentsPage() {
   const [newStudentName, setNewStudentName] = React.useState("");
   const [newStudentEmail, setNewStudentEmail] = React.useState("");
   const [newStudentPhone, setNewStudentPhone] = React.useState("");
+  const [newStudentProgram, setNewStudentProgram] = React.useState("");
+  const [newStudentClassName, setNewStudentClassName] = React.useState("");
   const [newStudentCountry, setNewStudentCountry] = React.useState("");
   const [studentSaving, setStudentSaving] = React.useState(false);
   const [studentError, setStudentError] = React.useState<string | null>(null);
@@ -85,25 +87,21 @@ export default function StudentsPage() {
       try {
         setLoading(true);
         setError(null);
-        const [sRes, tRes, cRes, eRes, ssRes] = await Promise.all([
+        const [sRes, cRes, eRes, ssRes] = await Promise.all([
           fetch("/api/students", { cache: "no-store" }),
-          fetch("/api/teachers", { cache: "no-store" }),
           fetch("/api/courses", { cache: "no-store" }),
           fetch("/api/enrollments", { cache: "no-store" }),
           fetch("/api/sessions", { cache: "no-store" }),
         ]);
         if (!sRes.ok) throw new Error(await sRes.text());
-        if (!tRes.ok) throw new Error(await tRes.text());
         if (!cRes.ok) throw new Error(await cRes.text());
         if (!eRes.ok) throw new Error(await eRes.text());
         if (!ssRes.ok) throw new Error(await ssRes.text());
         const sData = (await sRes.json()) as Student[];
-        const tData = (await tRes.json()) as Teacher[];
         const cData = (await cRes.json()) as Course[];
         const eData = (await eRes.json()) as Enrollment[];
         const ssData = (await ssRes.json()) as Session[];
         setStudents(sData);
-        setTeachers(tData);
         setCourses(cData);
         setEnrollments(eData);
         setSessions(ssData);
@@ -119,7 +117,6 @@ export default function StudentsPage() {
       }
     };
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = students.filter((s) =>
@@ -127,6 +124,43 @@ export default function StudentsPage() {
       .filter(Boolean)
       .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
   );
+  const deferredEnrollCourseSearch = React.useDeferredValue(enrollCourseSearch);
+  const filteredEnrollCourses = React.useMemo(() => {
+    const q = deferredEnrollCourseSearch.trim().toLowerCase();
+    return courses.filter((course) => {
+      if (!q) return true;
+      return course.title.toLowerCase().includes(q);
+    });
+  }, [courses, deferredEnrollCourseSearch]);
+  const selectedEnrollStudent = students.find((student) => student.id === enrollStudentId) ?? null;
+  const selectedEnrollCourseNames = React.useMemo(
+    () =>
+      enrollCourseIds
+        .map((courseId) => courses.find((course) => course.id === courseId)?.title)
+        .filter((title): title is string => Boolean(title)),
+    [enrollCourseIds, courses]
+  );
+
+  const openCreateStudentDialog = () => {
+    setStudentError(null);
+    setNewStudentName("");
+    setNewStudentEmail("");
+    setNewStudentPhone("");
+    setNewStudentProgram("");
+    setNewStudentClassName("");
+    setNewStudentCountry("");
+    setOpenStudentModal(true);
+  };
+
+  const openEnrollmentDialog = (studentId?: string) => {
+    const resolvedStudentId = studentId ?? enrollStudentId ?? students[0]?.id ?? "";
+    setEnrollError(null);
+    setEnrollSuccess(null);
+    setEnrollStatus("active");
+    setEnrollCourseSearch("");
+    setEnrollStudentId(resolvedStudentId);
+    setOpenEnroll(true);
+  };
 
   // Update selected courses when student selection changes
   React.useEffect(() => {
@@ -302,7 +336,7 @@ export default function StudentsPage() {
                   onChange={(e) => setQuery(e.target.value)}
                   className="h-9 w-[260px]"
                 />
-                <Button onClick={() => setOpenStudentModal(true)}>+ Add Student</Button>
+                <Button onClick={openCreateStudentDialog}>+ Add Student</Button>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
@@ -337,8 +371,7 @@ export default function StudentsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                setEnrollStudentId(s.id);
-                                setOpenEnroll(true);
+                                openEnrollmentDialog(s.id);
                               }}
                             >
                               Enroll
@@ -402,8 +435,7 @@ export default function StudentsPage() {
                           variant="outline"
                           className="flex-1"
                           onClick={() => {
-                            setEnrollStudentId(s.id);
-                            setOpenEnroll(true);
+                            openEnrollmentDialog(s.id);
                           }}
                         >
                           Enroll
@@ -446,112 +478,202 @@ export default function StudentsPage() {
         </>
       )}
 
-      {openStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenStudentModal(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">Add Student</h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenStudentModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-2">
-              <Input
-                placeholder="Full name"
-                value={newStudentName}
-                onChange={(e) => setNewStudentName(e.target.value)}
-                name="student-name"
-                className="h-9"
-                required
-                autoComplete="name"
-              />
-              <Input
-                type="email"
-                placeholder="Email"
-                value={newStudentEmail}
-                onChange={(e) => setNewStudentEmail(e.target.value)}
-                name="student-email"
-                className="h-9"
-                required
-                autoComplete="email"
-              />
-              <Input
-                type="tel"
-                placeholder="Phone"
-                value={newStudentPhone}
-                onChange={(e) => setNewStudentPhone(e.target.value)}
-                name="student-phone"
-                className="h-9"
-                required
-                autoComplete="tel"
-              />
-              <Input
-                placeholder="Country (optional)"
-                value={newStudentCountry}
-                onChange={(e) => setNewStudentCountry(e.target.value)}
-                name="student-country"
-                className="h-9"
-              />
-              {studentError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {studentError}
-                </div>
-              )}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenStudentModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={
-                  studentSaving ||
-                  !newStudentName.trim() ||
-                  !newStudentEmail.trim() ||
-                  !newStudentPhone.trim()
+      <CreationDialog
+        open={openStudentModal}
+        onOpenChange={setOpenStudentModal}
+        icon={GraduationCap}
+        eyebrow="Student Onboarding"
+        title="Add a polished student profile"
+        description="Capture the essentials once so enrollment, attendance, and reporting stay clean from day one."
+        accent="emerald"
+        className="sm:max-w-4xl"
+        stats={[
+          { label: "Primary contact", value: newStudentEmail.trim() || "Awaiting email", hint: "Main communication channel" },
+          { label: "Program", value: newStudentProgram.trim() || "Not set", hint: "Optional learning track" },
+          { label: "Region", value: newStudentCountry.trim() || "Not set", hint: "Useful for scheduling and support" },
+        ]}
+        footer={
+          <div className="flex w-full items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpenStudentModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                studentSaving ||
+                !newStudentName.trim() ||
+                !newStudentEmail.trim() ||
+                !newStudentPhone.trim()
+              }
+              onClick={async () => {
+                try {
+                  setStudentSaving(true);
+                  setStudentError(null);
+                  const res = await fetch("/api/students", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: newStudentName.trim(),
+                      email: newStudentEmail.trim(),
+                      phone: newStudentPhone.trim(),
+                      country: newStudentCountry.trim() || undefined,
+                      program: newStudentProgram.trim() || undefined,
+                      class_name: newStudentClassName.trim() || undefined,
+                    }),
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  setNewStudentName("");
+                  setNewStudentEmail("");
+                  setNewStudentPhone("");
+                  setNewStudentProgram("");
+                  setNewStudentClassName("");
+                  setNewStudentCountry("");
+                  setOpenStudentModal(false);
+                  const sRes = await fetch("/api/students", { cache: "no-store" });
+                  if (sRes.ok) setStudents((await sRes.json()) as Student[]);
+                } catch (err) {
+                  setStudentError(err instanceof Error ? err.message : "Failed to create student");
+                } finally {
+                  setStudentSaving(false);
                 }
-                onClick={async () => {
-                  try {
-                    setStudentSaving(true);
-                    setStudentError(null);
-                    const res = await fetch("/api/students", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        name: newStudentName.trim(),
-                        email: newStudentEmail.trim(),
-                        phone: newStudentPhone.trim(),
-                        country: newStudentCountry.trim() || undefined,
-                      }),
-                    });
-                    if (!res.ok) throw new Error(await res.text());
-                    setNewStudentName("");
-                    setNewStudentEmail("");
-                    setNewStudentPhone("");
-                    setNewStudentCountry("");
-                    setOpenStudentModal(false);
-                    const sRes = await fetch("/api/students", { cache: "no-store" });
-                    if (sRes.ok) setStudents((await sRes.json()) as Student[]);
-                  } catch (err) {
-                    setStudentError(err instanceof Error ? err.message : "Failed to create student");
-                  } finally {
-                    setStudentSaving(false);
-                  }
-                }}
-              >
-                {studentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-              </Button>
-            </div>
+              }}
+            >
+              {studentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Student"}
+            </Button>
           </div>
+        }
+      >
+        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="space-y-4">
+            <CreationSection
+              eyebrow="Contact"
+              title="Student identity"
+              description="Use the same details your team will rely on for attendance reminders and follow-up."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <Label htmlFor="student-name">Full name</Label>
+                  <Input
+                    id="student-name"
+                    value={newStudentName}
+                    onChange={(e) => setNewStudentName(e.target.value)}
+                    name="student-name"
+                    className="mt-2 h-11 bg-white"
+                    autoComplete="name"
+                    placeholder="Amina Johnson"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="student-email">Email</Label>
+                  <Input
+                    id="student-email"
+                    type="email"
+                    value={newStudentEmail}
+                    onChange={(e) => setNewStudentEmail(e.target.value)}
+                    name="student-email"
+                    className="mt-2 h-11 bg-white"
+                    autoComplete="email"
+                    placeholder="amina@example.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="student-phone">Phone</Label>
+                  <Input
+                    id="student-phone"
+                    type="tel"
+                    value={newStudentPhone}
+                    onChange={(e) => setNewStudentPhone(e.target.value)}
+                    name="student-phone"
+                    className="mt-2 h-11 bg-white"
+                    autoComplete="tel"
+                    placeholder="+1 555 123 4567"
+                  />
+                </div>
+              </div>
+            </CreationSection>
+
+            <CreationSection
+              eyebrow="Profile"
+              title="Optional academic context"
+              description="Adding this now makes filtering and downstream enrollment assignment easier later."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="student-program">Program</Label>
+                  <Input
+                    id="student-program"
+                    placeholder="SAT Intensive"
+                    value={newStudentProgram}
+                    onChange={(e) => setNewStudentProgram(e.target.value)}
+                    className="mt-2 h-11 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="student-class">Cohort / class</Label>
+                  <Input
+                    id="student-class"
+                    placeholder="Weekend A"
+                    value={newStudentClassName}
+                    onChange={(e) => setNewStudentClassName(e.target.value)}
+                    className="mt-2 h-11 bg-white"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="student-country">Country</Label>
+                  <Input
+                    id="student-country"
+                    placeholder="Nigeria"
+                    value={newStudentCountry}
+                    onChange={(e) => setNewStudentCountry(e.target.value)}
+                    name="student-country"
+                    className="mt-2 h-11 bg-white"
+                  />
+                </div>
+              </div>
+            </CreationSection>
+          </div>
+
+          <CreationSection
+            eyebrow="Preview"
+            title="Profile snapshot"
+            description="A quick read on how this student will appear across the dashboard."
+          >
+            <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-sky-500 text-lg font-semibold text-white">
+                  {(newStudentName.trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 2) || "ST").toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold text-slate-900">
+                    {newStudentName.trim() || "Student name"}
+                  </p>
+                  <p className="truncate text-sm text-slate-500">
+                    {newStudentEmail.trim() || "Email will appear here"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {newStudentProgram.trim() ? <CreationChip accent="emerald">{newStudentProgram.trim()}</CreationChip> : null}
+                {newStudentClassName.trim() ? <CreationChip accent="sky">{newStudentClassName.trim()}</CreationChip> : null}
+                {newStudentCountry.trim() ? <CreationChip accent="amber">{newStudentCountry.trim()}</CreationChip> : null}
+                {!newStudentProgram.trim() && !newStudentClassName.trim() && !newStudentCountry.trim() ? (
+                  <p className="text-xs text-slate-500">Add profile context to make this student easier to sort later.</p>
+                ) : null}
+              </div>
+              <div className="mt-5 space-y-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                <p>Phone: {newStudentPhone.trim() || "Not added yet"}</p>
+                <p>Program: {newStudentProgram.trim() || "Not assigned"}</p>
+                <p>Cohort: {newStudentClassName.trim() || "Not assigned"}</p>
+              </div>
+            </div>
+          </CreationSection>
         </div>
-      )}
+
+        {studentError && (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {studentError}
+          </div>
+        )}
+      </CreationDialog>
 
       {openEditStudent && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center" onMouseDown={() => setOpenEditStudent(false)}>
@@ -640,42 +762,82 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {openEnroll && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center" onMouseDown={() => setOpenEnroll(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-xl rounded-2xl border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">Enroll Student</h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenEnroll(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-3">
+      <CreationDialog
+        open={openEnroll}
+        onOpenChange={setOpenEnroll}
+        icon={GraduationCap}
+        eyebrow="Enrollment Studio"
+        title="Shape this student's active enrollments"
+        description="Choose the courses to keep active, update their status, and remove anything that should no longer stay on the roster."
+        accent="amber"
+        className="sm:max-w-5xl"
+        stats={[
+          {
+            label: "Student",
+            value: selectedEnrollStudent?.name || "Select a student",
+            hint: selectedEnrollStudent?.email || "Choose who you are updating",
+          },
+          { label: "Selected courses", value: `${enrollCourseIds.length}`, hint: "Courses that will remain enrolled" },
+          { label: "Status", value: enrollStatus, hint: "Applied to selected enrollments" },
+        ]}
+        footer={
+          <div className="flex w-full items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpenEnroll(false)}>
+              Cancel
+            </Button>
+            <Button disabled={enrollSaving || !enrollStudentId} onClick={saveEnrollment}>
+              {enrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Enrollment Changes"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-4">
+            <CreationSection
+              eyebrow="Owner"
+              title="Choose the student"
+              description="Swap students without leaving the dialog when you are processing several updates in a row."
+            >
+              <Label>Student</Label>
               <Select value={enrollStudentId} onValueChange={setEnrollStudentId}>
-                <SelectTrigger className="h-9 w-full">
+                <SelectTrigger className="mt-2 h-11 w-full bg-white">
                   <SelectValue placeholder="Student" />
                 </SelectTrigger>
                 <SelectContent>
-                  {students.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id}>
+                      {student.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+                <p className="font-semibold text-slate-900">{selectedEnrollStudent?.name || "Student not selected"}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {selectedEnrollStudent?.email || "Select a student to see their details here."}
+                </p>
+                {selectedEnrollStudent?.program ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <CreationChip accent="emerald">{selectedEnrollStudent.program}</CreationChip>
+                    {selectedEnrollStudent.class_name ? (
+                      <CreationChip accent="sky">{selectedEnrollStudent.class_name}</CreationChip>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </CreationSection>
 
+            <CreationSection
+              eyebrow="Status"
+              title="Set the enrollment state"
+              description="This status will apply to each selected course when you save."
+            >
+              <Label>Status</Label>
               <Select
                 value={enrollStatus}
-                onValueChange={(v: "active" | "paused" | "completed" | "dropped") => setEnrollStatus(v)}
+                onValueChange={(value: "active" | "paused" | "completed" | "dropped") => setEnrollStatus(value)}
               >
-                <SelectTrigger className="h-9 w-full">
+                <SelectTrigger className="mt-2 h-11 w-full bg-white">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -685,72 +847,102 @@ export default function StudentsPage() {
                   <SelectItem value="dropped">Dropped</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Unselect a course below to remove the student from it entirely.
+              </p>
+            </CreationSection>
+          </div>
 
+          <div className="space-y-4">
+            <CreationSection
+              eyebrow="Course Picker"
+              title="Keep the right courses active"
+              description="Search and toggle the courses this student should stay enrolled in."
+              badge={`${enrollCourseIds.length} selected`}
+            >
+              <Label htmlFor="enroll-course-search">Search courses</Label>
               <Input
-                placeholder="Search courses"
+                id="enroll-course-search"
+                placeholder="Search course title"
                 value={enrollCourseSearch}
                 onChange={(e) => setEnrollCourseSearch(e.target.value)}
-                className="h-9"
+                className="mt-2 h-11 bg-white"
               />
-              <p className="text-xs text-slate-500">
-                Select courses to keep enrolled. Unselect a course to unenroll.
-              </p>
-
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto rounded-md border border-slate-200 p-2">
-                {courses
-                  .filter((c) =>
-                    enrollCourseSearch
-                      ? c.title.toLowerCase().includes(enrollCourseSearch.toLowerCase())
-                      : true
-                  )
-                  .map((c) => {
-                    const selected = enrollCourseIds.includes(c.id);
+              <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
+                {filteredEnrollCourses.length ? (
+                  filteredEnrollCourses.map((course) => {
+                    const selected = enrollCourseIds.includes(course.id);
                     return (
                       <button
-                        key={c.id}
+                        key={course.id}
                         type="button"
                         onClick={() => {
                           setEnrollCourseIds((prev) =>
-                            selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                            selected ? prev.filter((id) => id !== course.id) : [...prev, course.id]
                           );
                         }}
-                        className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
+                        className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition ${
                           selected
-                            ? "border-sky-200 bg-sky-50 text-sky-700"
-                            : "border-slate-200 bg-white text-slate-700"
+                            ? "border-amber-300 bg-amber-50 shadow-[0_12px_24px_-20px_rgba(245,158,11,0.8)]"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                         }`}
                       >
-                        <span>{c.title}</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-[2px] text-[10px] uppercase tracking-wide">
-                          {c.modality}
-                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{course.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {selected ? "Selected to remain enrolled" : "Tap to include this course"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CreationChip accent={selected ? "amber" : "sky"}>
+                            {course.modality === "group" ? "Group" : "1-on-1"}
+                          </CreationChip>
+                          <CreationChip accent={selected ? "emerald" : "sky"} className={!selected ? "border-slate-200 bg-slate-100 text-slate-600" : ""}>
+                            {selected ? "Selected" : "Available"}
+                          </CreationChip>
+                        </div>
                       </button>
                     );
-                  })}
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                    No courses match that search.
+                  </div>
+                )}
               </div>
+            </CreationSection>
 
-              {enrollError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {enrollError}
-                </div>
-              )}
-              {enrollSuccess && (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                  {enrollSuccess}
-                </div>
-              )}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenEnroll(false)}>
-                Cancel
-              </Button>
-              <Button disabled={enrollSaving || !enrollStudentId} onClick={saveEnrollment}>
-                {enrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-              </Button>
-            </div>
+            <CreationSection
+              eyebrow="Preview"
+              title="Enrollment summary"
+              description="A quick view of what will stay on the student's schedule."
+            >
+              <div className="flex flex-wrap gap-2">
+                {selectedEnrollCourseNames.length ? (
+                  selectedEnrollCourseNames.map((courseName) => (
+                    <CreationChip key={courseName} accent="amber">
+                      {courseName}
+                    </CreationChip>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">No courses selected yet. Saving with none selected will remove all enrollments.</p>
+                )}
+              </div>
+            </CreationSection>
           </div>
         </div>
-      )}
+
+        {enrollError && (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {enrollError}
+          </div>
+        )}
+        {enrollSuccess && (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {enrollSuccess}
+          </div>
+        )}
+      </CreationDialog>
 
       {detailStudent && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center" onMouseDown={() => setDetailStudent(null)}>

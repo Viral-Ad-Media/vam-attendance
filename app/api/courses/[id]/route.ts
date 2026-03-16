@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/api/audit";
 
 const updateSchema = z.object({
   title: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   modality: z.enum(["group", "1on1"]).optional(),
   lead_teacher_id: z.string().uuid().optional().nullable(),
   course_type: z.string().optional().nullable(),

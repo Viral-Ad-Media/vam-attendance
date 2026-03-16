@@ -3,9 +3,11 @@
 
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import Textarea from "@/components/ui/textarea";
 import { BookOpen, Users, Loader2, Trash2 } from "lucide-react";
 
 type Course = {
@@ -113,6 +116,7 @@ export default function CoursesPage() {
     loadAll();
   }, [loadAll]);
 
+  const deferredStudentSearch = React.useDeferredValue(editStudentSearch);
   const teacherById = React.useMemo(() => new Map(teachers.map((t) => [t.id, t.name])), [teachers]);
 
   const courseStats = React.useMemo(() => {
@@ -146,6 +150,52 @@ export default function CoursesPage() {
       (c.modality || "").toLowerCase().includes(q)
     );
   });
+
+  const filteredStudentOptions = React.useMemo(() => {
+    const q = deferredStudentSearch.trim().toLowerCase();
+    return students.filter((student) => {
+      if (!q) return true;
+      return student.name.toLowerCase().includes(q);
+    });
+  }, [students, deferredStudentSearch]);
+
+  const selectedTeacherName = editLeadTeacher
+    ? teacherById.get(editLeadTeacher) ?? "Assigned teacher"
+    : "Unassigned";
+  const selectedStudentNames = React.useMemo(
+    () =>
+      editSelectedStudents
+        .map((studentId) => students.find((student) => student.id === studentId)?.name)
+        .filter((name): name is string => Boolean(name)),
+    [editSelectedStudents, students]
+  );
+  const cadenceCount = editMeetingDays.length;
+  const cadenceLabel = cadenceCount ? `${cadenceCount} sessions / week` : "Flexible cadence";
+  const timelineLabel = editStartsAt
+    ? new Date(editStartsAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Start date not set";
+
+  const openNewCourseDialog = () => {
+    setEditCourseId(null);
+    setEditTitle("");
+    setEditDescription("");
+    setEditModality("group");
+    setEditLeadTeacher(null);
+    setEditType("");
+    setEditDuration("");
+    setEditMeetingDays([]);
+    setEditMaxStudents("");
+    setEditStartsAt("");
+    setEditEndsAt("");
+    setEditStudentSearch("");
+    setEditSelectedStudents([]);
+    setCourseError(null);
+    setOpenEditCourse(true);
+  };
 
   const saveCourse = async () => {
     setCourseSaving(true);
@@ -294,23 +344,7 @@ export default function CoursesPage() {
                   onChange={(e) => setQuery(e.target.value)}
                   className="h-9 w-[220px]"
                 />
-                <Button
-                  onClick={() => {
-                    setEditCourseId(null);
-                    setEditTitle("");
-                    setEditDescription("");
-                    setEditModality("group");
-                    setEditLeadTeacher(null);
-                    setEditType("");
-                    setEditDuration("");
-                    setEditMeetingDays([]);
-                    setEditMaxStudents("");
-                    setEditStartsAt("");
-                    setEditEndsAt("");
-                    setEditSelectedStudents([]);
-                    setOpenEditCourse(true);
-                  }}
-                >
+                <Button onClick={openNewCourseDialog}>
                   + New Course
                 </Button>
               </div>
@@ -350,6 +384,8 @@ export default function CoursesPage() {
                             setEditMaxStudents(course.max_students?.toString() || "");
                             setEditStartsAt(toLocalInput(course.starts_at));
                             setEditEndsAt(toLocalInput(course.ends_at));
+                            setEditStudentSearch("");
+                            setCourseError(null);
                             const existingEnrollments = enrollmentsByCourse.get(course.id) || [];
                             setEditSelectedStudents(existingEnrollments.map((en) => en.student_id));
                             setOpenEditCourse(true);
@@ -456,150 +492,27 @@ export default function CoursesPage() {
         </>
       )}
 
-      {openEditCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditCourse(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-2xl rounded-2xl border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">
-                {editCourseId ? "Edit Course" : "New Course"}
-              </h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenEditCourse(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Input
-                placeholder="Title"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="h-9 sm:col-span-2"
-              />
-              <Input
-                placeholder="Description"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                className="h-9 sm:col-span-2"
-              />
-              <Select value={editModality} onValueChange={(v: "group" | "1on1") => setEditModality(v)}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Modality" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="group">Group</SelectItem>
-                  <SelectItem value="1on1">1-on-1</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={editLeadTeacher || "none"}
-                onValueChange={(v) => setEditLeadTeacher(v === "none" ? null : v)}
-              >
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Lead teacher" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Course type"
-                value={editType}
-                onChange={(e) => setEditType(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                placeholder="Duration (weeks)"
-                inputMode="numeric"
-                value={editDuration}
-                onChange={(e) => setEditDuration(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                placeholder="Sessions / week"
-                inputMode="numeric"
-                value={editMeetingDays.length ? editMeetingDays.length.toString() : ""}
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 0;
-                  setEditMeetingDays(defaultDaysFromCount(val));
-                }}
-                className="h-9"
-              />
-              <Input
-                placeholder="Max students"
-                inputMode="numeric"
-                value={editMaxStudents}
-                onChange={(e) => setEditMaxStudents(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                type="datetime-local"
-                value={editStartsAt}
-                onChange={(e) => setEditStartsAt(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                type="datetime-local"
-                value={editEndsAt}
-                onChange={(e) => setEditEndsAt(e.target.value)}
-                className="h-9"
-              />
-              <div className="sm:col-span-2">
-                <Input
-                  placeholder="Search students to add"
-                  value={editStudentSearch}
-                  onChange={(e) => setEditStudentSearch(e.target.value)}
-                  className="h-9"
-                />
-                <div className="mt-2 flex flex-wrap gap-2 max-h-32 overflow-y-auto rounded-md border border-slate-200 p-2">
-                  {students
-                    .filter((s) =>
-                      editStudentSearch
-                        ? s.name.toLowerCase().includes(editStudentSearch.toLowerCase())
-                        : true
-                    )
-                    .map((s) => {
-                      const selected = editSelectedStudents.includes(s.id);
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => {
-                            setEditSelectedStudents((prev) =>
-                              selected ? prev.filter((id) => id !== s.id) : [...prev, s.id]
-                            );
-                          }}
-                          className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${
-                            selected
-                              ? "border-sky-200 bg-sky-50 text-sky-700"
-                              : "border-slate-200 bg-white text-slate-700"
-                          }`}
-                        >
-                          <Users className="h-3 w-3" />
-                          {s.name}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-            </div>
-            {courseError && (
-              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {courseError}
-              </div>
-            )}
-            <div className="mt-4 flex items-center justify-between gap-2">
+      <CreationDialog
+        open={openEditCourse}
+        onOpenChange={setOpenEditCourse}
+        icon={BookOpen}
+        eyebrow={editCourseId ? "Course Editor" : "Course Builder"}
+        title={editCourseId ? "Refine your course setup" : "Design a polished course"}
+        description="Shape the structure, delivery cadence, and starter roster in one focused workspace."
+        accent="sky"
+        className="sm:max-w-5xl"
+        stats={[
+          { label: "Lead teacher", value: selectedTeacherName, hint: "Who owns delivery" },
+          {
+            label: "Starter roster",
+            value: `${editSelectedStudents.length} selected`,
+            hint: "Pre-enroll students at launch",
+          },
+          { label: "Weekly rhythm", value: cadenceLabel, hint: timelineLabel },
+        ]}
+        footer={
+          <div className="flex w-full items-center justify-between gap-3">
+            <div>
               {editCourseId ? (
                 <Button
                   variant="outline"
@@ -618,24 +531,293 @@ export default function CoursesPage() {
                     "Delete Course"
                   )}
                 </Button>
-              ) : (
-                <span />
-              )}
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setOpenEditCourse(false)}>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setOpenEditCourse(false)}>
                 Cancel
-                </Button>
-                <Button
-                  disabled={courseSaving || !editTitle.trim()}
-                  onClick={saveCourse}
-                >
-                  {courseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                </Button>
-              </div>
+              </Button>
+              <Button disabled={courseSaving || !editTitle.trim()} onClick={saveCourse}>
+                {courseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editCourseId ? "Save Changes" : "Create Course"}
+              </Button>
             </div>
           </div>
+        }
+      >
+        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-4">
+            <CreationSection
+              eyebrow="Essentials"
+              title="Define the course identity"
+              description="Capture the student-facing details and lock in the teaching format before sessions are generated."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <Label htmlFor="course-title">Course title</Label>
+                  <Input
+                    id="course-title"
+                    placeholder="Advanced speaking cohort"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="mt-2 h-11"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="course-description">Description</Label>
+                  <Textarea
+                    id="course-description"
+                    placeholder="What students should expect, key outcomes, and the structure of the experience."
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="mt-2 min-h-[120px]"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Teaching format</Label>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    {[
+                      {
+                        value: "group" as const,
+                        title: "Group format",
+                        description: "Perfect for cohorts, batch programs, and recurring class groups.",
+                      },
+                      {
+                        value: "1on1" as const,
+                        title: "1-on-1 format",
+                        description: "Best for private instruction, coaching, and premium support.",
+                      },
+                    ].map((option) => {
+                      const active = editModality === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setEditModality(option.value)}
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                            active
+                              ? "border-sky-300 bg-sky-50 shadow-[0_10px_24px_-18px_rgba(14,165,233,0.8)]"
+                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-slate-900">{option.title}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">{option.description}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <Label>Lead teacher</Label>
+                  <Select
+                    value={editLeadTeacher || "none"}
+                    onValueChange={(value) => setEditLeadTeacher(value === "none" ? null : value)}
+                  >
+                    <SelectTrigger className="mt-2 h-11 w-full bg-white">
+                      <SelectValue placeholder="Lead teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="course-type">Course type</Label>
+                  <Input
+                    id="course-type"
+                    placeholder="IELTS Prep"
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value)}
+                    className="mt-2 h-11"
+                  />
+                </div>
+              </div>
+            </CreationSection>
+
+            <CreationSection
+              eyebrow="Delivery"
+              title="Plan the course cadence"
+              description="Set the timeline and operating rhythm used when new sessions are created."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="course-duration">Duration in weeks</Label>
+                  <Input
+                    id="course-duration"
+                    placeholder="8"
+                    inputMode="numeric"
+                    value={editDuration}
+                    onChange={(e) => setEditDuration(e.target.value)}
+                    className="mt-2 h-11"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="course-capacity">Max students</Label>
+                  <Input
+                    id="course-capacity"
+                    placeholder="24"
+                    inputMode="numeric"
+                    value={editMaxStudents}
+                    onChange={(e) => setEditMaxStudents(e.target.value)}
+                    className="mt-2 h-11"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Weekly cadence</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {["Flexible", "1", "2", "3", "4", "5"].map((option) => {
+                      const optionValue = option === "Flexible" ? 0 : Number(option);
+                      const active =
+                        option === "Flexible" ? editMeetingDays.length === 0 : editMeetingDays.length === optionValue;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setEditMeetingDays(defaultDaysFromCount(optionValue))}
+                          className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                            active
+                              ? "border-sky-300 bg-sky-50 text-sky-700"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          {option === "Flexible" ? option : `${option} / week`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    If you keep this flexible, the system falls back to a simple generated schedule.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="course-starts-at">First session</Label>
+                  <Input
+                    id="course-starts-at"
+                    type="datetime-local"
+                    value={editStartsAt}
+                    onChange={(e) => setEditStartsAt(e.target.value)}
+                    className="mt-2 h-11"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="course-ends-at">Ends at</Label>
+                  <Input
+                    id="course-ends-at"
+                    type="datetime-local"
+                    value={editEndsAt}
+                    onChange={(e) => setEditEndsAt(e.target.value)}
+                    className="mt-2 h-11"
+                  />
+                </div>
+              </div>
+            </CreationSection>
+          </div>
+
+          <div className="space-y-4">
+            <CreationSection
+              eyebrow="Roster"
+              title="Choose your starter students"
+              description="Preload enrollments for the course so the cohort is ready as soon as you save."
+              badge={`${editSelectedStudents.length} selected`}
+            >
+              <Label htmlFor="course-student-search">Find students</Label>
+              <Input
+                id="course-student-search"
+                placeholder="Search by student name"
+                value={editStudentSearch}
+                onChange={(e) => setEditStudentSearch(e.target.value)}
+                className="mt-2 h-11 bg-white"
+              />
+              <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                {filteredStudentOptions.length ? (
+                  filteredStudentOptions.map((student) => {
+                    const selected = editSelectedStudents.includes(student.id);
+                    return (
+                      <button
+                        key={student.id}
+                        type="button"
+                        onClick={() => {
+                          setEditSelectedStudents((prev) =>
+                            selected ? prev.filter((id) => id !== student.id) : [...prev, student.id]
+                          );
+                        }}
+                        className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition ${
+                          selected
+                            ? "border-sky-300 bg-sky-50 shadow-[0_12px_24px_-20px_rgba(14,165,233,0.8)]"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{student.name}</p>
+                          <p className="truncate text-xs text-slate-500">
+                            {selected ? "Included in starter roster" : "Tap to pre-enroll"}
+                          </p>
+                        </div>
+                        <CreationChip accent={selected ? "sky" : "amber"} className={selected ? "" : "border-slate-200 bg-slate-100 text-slate-600"}>
+                          {selected ? "Selected" : "Available"}
+                        </CreationChip>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                    No students match that search.
+                  </div>
+                )}
+              </div>
+            </CreationSection>
+
+            <CreationSection
+              eyebrow="Preview"
+              title="What this course will launch with"
+              description="A quick snapshot of how the record will look once it is created."
+            >
+              <div className="flex flex-wrap gap-2">
+                <CreationChip>{editModality === "group" ? "Group course" : "1-on-1 course"}</CreationChip>
+                <CreationChip accent="emerald">{selectedTeacherName}</CreationChip>
+                <CreationChip accent="amber">{cadenceLabel}</CreationChip>
+              </div>
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  {editTitle.trim() || "Untitled course"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  {editDescription.trim() || "Add a short overview so staff understand the goal of this course."}
+                </p>
+                <div className="mt-3 space-y-2 text-xs text-slate-500">
+                  <p>Course type: {editType.trim() || "Not specified"}</p>
+                  <p>Duration: {editDuration || "Not set"} week(s)</p>
+                  <p>Capacity: {editMaxStudents || "Open"} students</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedStudentNames.slice(0, 6).map((name) => (
+                  <CreationChip key={name} accent="sky">
+                    <Users className="mr-1 h-3 w-3" />
+                    {name}
+                  </CreationChip>
+                ))}
+                {selectedStudentNames.length > 6 ? (
+                  <CreationChip accent="amber">+{selectedStudentNames.length - 6} more</CreationChip>
+                ) : null}
+                {selectedStudentNames.length === 0 ? (
+                  <p className="text-xs text-slate-500">No students preselected yet.</p>
+                ) : null}
+              </div>
+            </CreationSection>
+          </div>
         </div>
-      )}
+
+        {courseError && (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {courseError}
+          </div>
+        )}
+      </CreationDialog>
     </div>
   );
 }
