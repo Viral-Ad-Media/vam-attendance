@@ -76,6 +76,19 @@ npm run dev
 2. Run the schema in `database/schema.sql` using the Supabase SQL editor.
 3. Confirm RLS is enabled and policies are installed (the migration handles this).
 
+**Seed Data**
+- `database/seed-data/amazon-walmart-schedule.csv` contains the Amazon/Walmart schedule sheet as repo seed data.
+- Preview the parsed seed plan:
+```
+npm run seed:amazon-walmart -- --dry-run
+```
+- Seed it into a specific organization:
+```
+SEED_ORG_ID=<organization-id> npm run seed:amazon-walmart
+```
+- The script reads `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from `.env`/`.env.local`, creates teachers and students, groups matching coach/day/time rows into courses, generates eight sessions per course, then upserts enrollments and attendance.
+- Optional settings: `SEED_START_DATE` defaults to `2026-01-05`; `SEED_TIMEZONE_OFFSET` defaults to `+00:00`.
+
 **Schema Summary**
 - `organizations`: Tenant boundary, owned by a Supabase auth user.
 - `memberships`: Org membership and roles (`owner`, `admin`, `teacher`, `student`, `viewer`).
@@ -195,3 +208,4 @@ When `sendPasswordSetup` is enabled, teacher create/update now generates a recov
 - `npm run build` Build for production
 - `npm run start` Run production server
 - `npm run lint` Run ESLint
+- `npm run seed:amazon-walmart` Seed Amazon/Walmart schedule demo data
