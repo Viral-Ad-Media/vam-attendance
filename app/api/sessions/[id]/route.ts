@@ -4,9 +4,10 @@ import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 
 const updateSchema = z.object({
-  teacher_id: z.string().uuid().optional(),
-  title: z.string().min(1).optional(),
-  starts_at: z.string().optional(),
+  teacher_id: z.string().uuid().optional().nullable(),
+  course_id: z.string().uuid().optional().nullable(),
+  title: z.string().min(1).optional().nullable(),
+  starts_at: z.string().min(1).optional(),
   ends_at: z.string().optional(),
   class_name: z.string().optional(),
   description: z.string().optional(),

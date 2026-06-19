@@ -5,6 +5,7 @@ import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 type Session = {
   id: string;
@@ -32,6 +33,28 @@ type NewSessionPayload = {
   title?: string;
   starts_at: string;
 };
+type SessionUpdatePayload = {
+  teacher_id: string | null;
+  course_id: string | null;
+  title: string | null;
+  starts_at: string;
+};
+
+function toDatetimeLocal(value: string) {
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+async function readResponseError(response: Response, fallback: string) {
+  const text = await response.text();
+  try {
+    const parsed = JSON.parse(text) as { error?: string; message?: string };
+    return parsed.error || parsed.message || fallback;
+  } catch {
+    return text || fallback;
+  }
+}
 
 export default function SessionsPage() {
   const [sessions, setSessions] = React.useState<Session[]>([]);
@@ -53,6 +76,14 @@ export default function SessionsPage() {
   const [newStartsAt, setNewStartsAt] = React.useState("");
   const [newSaving, setNewSaving] = React.useState(false);
   const [newError, setNewError] = React.useState<string | null>(null);
+  const [openEdit, setOpenEdit] = React.useState(false);
+  const [editSessionId, setEditSessionId] = React.useState<string | null>(null);
+  const [editTeacher, setEditTeacher] = React.useState<string>("");
+  const [editCourseId, setEditCourseId] = React.useState<string>("");
+  const [editTitle, setEditTitle] = React.useState("");
+  const [editStartsAt, setEditStartsAt] = React.useState("");
+  const [editSaving, setEditSaving] = React.useState(false);
+  const [editError, setEditError] = React.useState<string | null>(null);
   const [deletingSessionId, setDeletingSessionId] = React.useState<string | null>(null);
 
   const refreshSessionData = React.useCallback(async () => {
@@ -123,6 +154,45 @@ export default function SessionsPage() {
       setError(err instanceof Error ? err.message : "Failed to delete session");
     } finally {
       setDeletingSessionId(null);
+    }
+  };
+
+  const openEditSession = (session: Session) => {
+    setEditError(null);
+    setEditSessionId(session.id);
+    setEditTeacher(session.teacher_id || "");
+    setEditCourseId(session.course_id || "");
+    setEditTitle(session.title || "");
+    setEditStartsAt(toDatetimeLocal(session.starts_at));
+    setOpenEdit(true);
+  };
+
+  const saveEditedSession = async () => {
+    if (!editSessionId || !editStartsAt) return;
+
+    try {
+      setEditSaving(true);
+      setEditError(null);
+      const payload: SessionUpdatePayload = {
+        teacher_id: editTeacher || null,
+        course_id: editCourseId || null,
+        title: editTitle.trim() || null,
+        starts_at: new Date(editStartsAt).toISOString(),
+      };
+      const res = await fetch(`/api/sessions/${editSessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await readResponseError(res, "Failed to update session"));
+
+      setOpenEdit(false);
+      setEditSessionId(null);
+      await refreshSessionData();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to update session");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -262,19 +332,28 @@ export default function SessionsPage() {
                         {present} / {total}
                       </td>
                       <td className="py-2 pr-0 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600 hover:bg-red-50"
-                          disabled={deletingSessionId === s.id}
-                          onClick={() => void deleteSession(s)}
-                        >
-                          {deletingSessionId === s.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Delete"
-                          )}
-                        </Button>
+                        <div className="inline-flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditSession(s)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            disabled={deletingSessionId === s.id}
+                            onClick={() => void deleteSession(s)}
+                          >
+                            {deletingSessionId === s.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Delete"
+                            )}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -369,19 +448,29 @@ export default function SessionsPage() {
                                 <div className="text-[11px] font-semibold text-slate-800 line-clamp-2">
                                   {s.title ?? "Session"}
                                 </div>
-                                <button
-                                  type="button"
-                                  className="rounded p-0.5 text-red-600/80 hover:bg-red-50 hover:text-red-700"
-                                  aria-label="Delete session"
-                                  disabled={deletingSessionId === s.id}
-                                  onClick={() => void deleteSession(s)}
-                                >
-                                  {deletingSessionId === s.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3 w-3" />
-                                  )}
-                                </button>
+                                <div className="flex shrink-0 items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    className="rounded p-0.5 text-slate-500 hover:bg-white/70 hover:text-slate-900"
+                                    aria-label="Edit session"
+                                    onClick={() => openEditSession(s)}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded p-0.5 text-red-600/80 hover:bg-red-50 hover:text-red-700"
+                                    aria-label="Delete session"
+                                    disabled={deletingSessionId === s.id}
+                                    onClick={() => void deleteSession(s)}
+                                  >
+                                    {deletingSessionId === s.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                </div>
                               </div>
                               <div className="flex items-center justify-between gap-2 text-[10px] text-slate-600">
                                 <span>{time}</span>
@@ -411,6 +500,88 @@ export default function SessionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {openEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEdit(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">Edit Session</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenEdit(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Select value={editTeacher || "none"} onValueChange={(v) => setEditTeacher(v === "none" ? "" : v)}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {teachers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={editCourseId || "none"}
+                onValueChange={(v) => {
+                  const resolved = v === "none" ? "" : v;
+                  setEditCourseId(resolved);
+                  const course = courses.find((c) => c.id === resolved);
+                  if (course?.lead_teacher_id) setEditTeacher(course.lead_teacher_id);
+                }}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Course (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No course</SelectItem>
+                  {courses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                className="h-9"
+                placeholder="Title (optional)"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+              <Input
+                className="h-9"
+                type="datetime-local"
+                value={editStartsAt}
+                onChange={(e) => setEditStartsAt(e.target.value)}
+              />
+              {editError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {editError}
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenEdit(false)}>
+                Cancel
+              </Button>
+              <Button disabled={editSaving || !editSessionId || !editStartsAt} onClick={saveEditedSession}>
+                {editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {openNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenNew(false)}>
@@ -464,14 +635,14 @@ export default function SessionsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <input
-                className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-slate-400"
+              <Input
+                className="h-9"
                 placeholder="Title (optional)"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
               />
-              <input
-                className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-slate-400"
+              <Input
+                className="h-9"
                 type="datetime-local"
                 value={newStartsAt}
                 onChange={(e) => setNewStartsAt(e.target.value)}
