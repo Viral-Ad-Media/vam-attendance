@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -366,7 +367,10 @@ export default function StudentsPage() {
                         <td className="py-2 pr-3">{s.program ?? "—"}</td>
                         <td className="py-2 pr-3">{s.country ?? "—"}</td>
                         <td className="py-2 pr-0 text-right">
-                          <div className="inline-flex gap-2">
+                          <div className="inline-flex flex-wrap justify-end gap-2">
+                            <Button size="sm" variant="outline" asChild>
+                              <Link href={`/dashboard/students/${s.id}`}>Profile</Link>
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -429,11 +433,13 @@ export default function StudentsPage() {
                         <p>Program: {s.program ?? "—"}</p>
                         <p>Country: {s.country ?? "—"}</p>
                       </div>
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/dashboard/students/${s.id}`}>Profile</Link>
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1"
                           onClick={() => {
                             openEnrollmentDialog(s.id);
                           }}
@@ -443,7 +449,6 @@ export default function StudentsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1"
                           onClick={() => {
                             setEditStudentId(s.id);
                             setEditStudentName(s.name);
@@ -458,7 +463,7 @@ export default function StudentsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1 text-red-600 hover:bg-red-50"
+                          className="text-red-600 hover:bg-red-50"
                           onClick={() => deleteStudent(s)}
                         >
                           Delete

@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -199,11 +200,13 @@ export default function TeachersPage() {
                       <p className="text-xs text-slate-600">{t.email}</p>
                     </div>
                   </div>
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/dashboard/teachers/${t.id}`}>Profile</Link>
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1"
                       onClick={() => {
                         setEditTeacherId(t.id);
                         setEditTeacherName(t.name);
@@ -217,7 +220,7 @@ export default function TeachersPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1 text-red-600 hover:bg-red-50"
+                      className="text-red-600 hover:bg-red-50"
                       onClick={() => deleteTeacher(t)}
                     >
                       Delete
@@ -253,7 +256,10 @@ export default function TeachersPage() {
                       </div>
                     </td>
                     <td className="py-2 pr-0 text-right">
-                      <div className="inline-flex gap-2">
+                      <div className="inline-flex flex-wrap justify-end gap-2">
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/dashboard/teachers/${t.id}`}>Profile</Link>
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
