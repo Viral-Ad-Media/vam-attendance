@@ -7,6 +7,7 @@ import { CreationChip, CreationDialog, CreationSection } from "@/components/dash
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -34,6 +35,16 @@ type Enrollment = {
   enrolled_at?: string | null;
 };
 
+async function readResponseError(response: Response, fallback: string) {
+  const text = await response.text();
+  try {
+    const parsed = JSON.parse(text) as { error?: string; message?: string };
+    return parsed.error || parsed.message || fallback;
+  } catch {
+    return text || fallback;
+  }
+}
+
 export default function EnrollmentsPage() {
   const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [courses, setCourses] = React.useState<Course[]>([]);
@@ -55,6 +66,12 @@ export default function EnrollmentsPage() {
   const [enrollmentSaving, setEnrollmentSaving] = React.useState(false);
   const [enrollmentError, setEnrollmentError] = React.useState<string | null>(null);
   const [deletingEnrollmentId, setDeletingEnrollmentId] = React.useState<string | null>(null);
+  const [selectedEnrollmentIds, setSelectedEnrollmentIds] = React.useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = React.useState<Enrollment["status"] | "keep">("keep");
+  const [bulkTeacher, setBulkTeacher] = React.useState<string>("keep");
+  const [bulkSaving, setBulkSaving] = React.useState(false);
+  const [bulkError, setBulkError] = React.useState<string | null>(null);
+  const [bulkSuccess, setBulkSuccess] = React.useState<string | null>(null);
 
   const loadAll = React.useCallback(async () => {
     try {
@@ -92,7 +109,7 @@ export default function EnrollmentsPage() {
   const selectedNewCourse = courses.find((course) => course.id === newEnrollCourseId) ?? null;
   const selectedNewTeacher = teachers.find((teacher) => teacher.id === newEnrollTeacher) ?? null;
 
-  const filtered = enrollments.filter((en) => {
+  const filtered = React.useMemo(() => enrollments.filter((en) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
     const student = studentById.get(en.student_id) || "";
@@ -104,7 +121,44 @@ export default function EnrollmentsPage() {
       teacher.toLowerCase().includes(q) ||
       en.status.toLowerCase().includes(q)
     );
-  });
+  }), [courseById, enrollments, query, studentById, teacherById]);
+  const filteredEnrollmentIds = React.useMemo(() => filtered.map((enrollment) => enrollment.id), [filtered]);
+  const selectedEnrollments = React.useMemo(
+    () => enrollments.filter((enrollment) => selectedEnrollmentIds.includes(enrollment.id)),
+    [enrollments, selectedEnrollmentIds]
+  );
+  const selectedFilteredCount = filteredEnrollmentIds.filter((id) => selectedEnrollmentIds.includes(id)).length;
+  const allFilteredSelected = filteredEnrollmentIds.length > 0 && selectedFilteredCount === filteredEnrollmentIds.length;
+
+  React.useEffect(() => {
+    const currentIds = new Set(enrollments.map((enrollment) => enrollment.id));
+    setSelectedEnrollmentIds((prev) => prev.filter((id) => currentIds.has(id)));
+  }, [enrollments]);
+
+  const toggleEnrollmentSelection = (id: string, checked: boolean) => {
+    setBulkError(null);
+    setBulkSuccess(null);
+    setSelectedEnrollmentIds((prev) => {
+      if (checked) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((existingId) => existingId !== id);
+    });
+  };
+
+  const toggleFilteredSelection = (checked: boolean) => {
+    setBulkError(null);
+    setBulkSuccess(null);
+    setSelectedEnrollmentIds((prev) => {
+      const filteredIdSet = new Set(filteredEnrollmentIds);
+      if (!checked) return prev.filter((id) => !filteredIdSet.has(id));
+      return Array.from(new Set([...prev, ...filteredEnrollmentIds]));
+    });
+  };
+
+  const clearBulkSelection = () => {
+    setSelectedEnrollmentIds([]);
+    setBulkError(null);
+    setBulkSuccess(null);
+  };
 
   const openCreateEnrollmentDialog = () => {
     setEnrollmentError(null);
@@ -136,13 +190,7 @@ export default function EnrollmentsPage() {
         }),
       });
       if (!res.ok) {
-        const text = await res.text();
-        try {
-          const parsed = JSON.parse(text);
-          setEnrollmentError(parsed.error || parsed.message || "Failed to enroll student");
-        } catch {
-          setEnrollmentError(text || "Failed to enroll student");
-        }
+        setEnrollmentError(await readResponseError(res, "Failed to enroll student"));
         return;
       }
 
@@ -169,13 +217,7 @@ export default function EnrollmentsPage() {
         }),
       });
       if (!res.ok) {
-        const text = await res.text();
-        try {
-          const parsed = JSON.parse(text);
-          setEnrollmentError(parsed.error || parsed.message || "Failed to update enrollment");
-        } catch {
-          setEnrollmentError(text || "Failed to update enrollment");
-        }
+        setEnrollmentError(await readResponseError(res, "Failed to update enrollment"));
         return;
       }
       setOpenEditEnrollment(false);
@@ -199,13 +241,7 @@ export default function EnrollmentsPage() {
       setEnrollmentError(null);
       const res = await fetch(`/api/enrollments/${enrollment.id}`, { method: "DELETE" });
       if (!res.ok) {
-        const text = await res.text();
-        try {
-          const parsed = JSON.parse(text);
-          throw new Error(parsed.error || parsed.message || "Failed to unenroll student");
-        } catch {
-          throw new Error(text || "Failed to unenroll student");
-        }
+        throw new Error(await readResponseError(res, "Failed to unenroll student"));
       }
 
       if (editEnrollmentId === enrollment.id) {
@@ -219,6 +255,80 @@ export default function EnrollmentsPage() {
       setError(msg);
     } finally {
       setDeletingEnrollmentId(null);
+    }
+  };
+
+  const applyBulkChanges = async () => {
+    if (!selectedEnrollmentIds.length) return;
+
+    const payload: { teacher_id?: string | null; status?: Enrollment["status"] } = {};
+    if (bulkStatus !== "keep") payload.status = bulkStatus;
+    if (bulkTeacher !== "keep") payload.teacher_id = bulkTeacher === "none" ? null : bulkTeacher;
+
+    if (!Object.keys(payload).length) {
+      setBulkError("Choose a status or teacher option before applying changes.");
+      setBulkSuccess(null);
+      return;
+    }
+
+    setBulkSaving(true);
+    setBulkError(null);
+    setBulkSuccess(null);
+    try {
+      await Promise.all(
+        selectedEnrollmentIds.map(async (id) => {
+          const res = await fetch(`/api/enrollments/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            throw new Error(await readResponseError(res, "Failed to update selected enrollments"));
+          }
+        })
+      );
+
+      const changedCount = selectedEnrollmentIds.length;
+      await loadAll();
+      setSelectedEnrollmentIds([]);
+      setBulkStatus("keep");
+      setBulkTeacher("keep");
+      setBulkSuccess(`${changedCount} enrollment${changedCount === 1 ? "" : "s"} updated.`);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "Failed to update selected enrollments");
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const bulkUnenroll = async () => {
+    if (!selectedEnrollmentIds.length) return;
+    const ok = confirm(
+      `Unenroll ${selectedEnrollmentIds.length} selected enrollment${selectedEnrollmentIds.length === 1 ? "" : "s"}?`
+    );
+    if (!ok) return;
+
+    setBulkSaving(true);
+    setBulkError(null);
+    setBulkSuccess(null);
+    try {
+      await Promise.all(
+        selectedEnrollmentIds.map(async (id) => {
+          const res = await fetch(`/api/enrollments/${id}`, { method: "DELETE" });
+          if (!res.ok) {
+            throw new Error(await readResponseError(res, "Failed to unenroll selected students"));
+          }
+        })
+      );
+
+      const removedCount = selectedEnrollmentIds.length;
+      await loadAll();
+      setSelectedEnrollmentIds([]);
+      setBulkSuccess(`${removedCount} enrollment${removedCount === 1 ? "" : "s"} removed.`);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "Failed to unenroll selected students");
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -255,9 +365,108 @@ export default function EnrollmentsPage() {
             </div>
           </CardHeader>
           <CardContent className="overflow-x-auto">
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {selectedEnrollmentIds.length
+                      ? `${selectedEnrollmentIds.length} selected`
+                      : "Bulk edit enrollments"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Update status, teacher assignment, or remove selected enrollments.
+                  </p>
+                </div>
+                {selectedEnrollmentIds.length ? (
+                  <Button variant="outline" size="sm" onClick={clearBulkSelection} disabled={bulkSaving}>
+                    Clear Selection
+                  </Button>
+                ) : null}
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-[minmax(150px,1fr)_minmax(180px,1fr)_auto_auto]">
+                <Select
+                  value={bulkStatus}
+                  onValueChange={(value: Enrollment["status"] | "keep") => setBulkStatus(value)}
+                  disabled={!selectedEnrollmentIds.length || bulkSaving}
+                >
+                  <SelectTrigger className="h-9 w-full bg-white">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="keep">Keep status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="dropped">Dropped</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={bulkTeacher}
+                  onValueChange={setBulkTeacher}
+                  disabled={!selectedEnrollmentIds.length || bulkSaving}
+                >
+                  <SelectTrigger className="h-9 w-full bg-white">
+                    <SelectValue placeholder="Teacher" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="keep">Keep teacher</SelectItem>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {teachers.map((teacher) => (
+                      <SelectItem key={teacher.id} value={teacher.id}>
+                        {teacher.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  disabled={!selectedEnrollmentIds.length || bulkSaving}
+                  onClick={applyBulkChanges}
+                >
+                  {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply Changes"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-red-600 hover:bg-red-50"
+                  disabled={!selectedEnrollmentIds.length || bulkSaving}
+                  onClick={bulkUnenroll}
+                >
+                  Unenroll Selected
+                </Button>
+              </div>
+              {selectedEnrollments.length ? (
+                <p className="mt-2 text-xs text-slate-500">
+                  Selected:{" "}
+                  {selectedEnrollments
+                    .slice(0, 3)
+                    .map((enrollment) => studentById.get(enrollment.student_id) ?? "Unknown student")
+                    .join(", ")}
+                  {selectedEnrollments.length > 3 ? `, +${selectedEnrollments.length - 3} more` : ""}
+                </p>
+              ) : null}
+              {bulkError ? (
+                <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {bulkError}
+                </div>
+              ) : null}
+              {bulkSuccess ? (
+                <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  {bulkSuccess}
+                </div>
+              ) : null}
+            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
+                  <th className="w-10 py-2 pr-3">
+                    <Checkbox
+                      checked={allFilteredSelected}
+                      disabled={!filteredEnrollmentIds.length || bulkSaving}
+                      aria-label="Select all filtered enrollments"
+                      onCheckedChange={toggleFilteredSelection}
+                    />
+                  </th>
                   <th className="py-2 pr-3">Student</th>
                   <th className="py-2 pr-3">Course</th>
                   <th className="py-2 pr-3">Teacher</th>
@@ -267,8 +476,17 @@ export default function EnrollmentsPage() {
               </thead>
               <tbody>
                 {filtered.map((en) => {
+                  const selected = selectedEnrollmentIds.includes(en.id);
                   return (
-                    <tr key={en.id} className="border-t">
+                    <tr key={en.id} className={`border-t ${selected ? "bg-primary/5" : ""}`}>
+                      <td className="py-2 pr-3">
+                        <Checkbox
+                          checked={selected}
+                          disabled={bulkSaving}
+                          aria-label={`Select enrollment for ${studentById.get(en.student_id) ?? "student"}`}
+                          onCheckedChange={(checked) => toggleEnrollmentSelection(en.id, checked)}
+                        />
+                      </td>
                       <td className="py-2 pr-3">{studentById.get(en.student_id) ?? "—"}</td>
                       <td className="py-2 pr-3">{courseById.get(en.course_id) ?? "—"}</td>
                       <td className="py-2 pr-3">{en.teacher_id ? teacherById.get(en.teacher_id) ?? "—" : "Unassigned"}</td>
@@ -307,7 +525,7 @@ export default function EnrollmentsPage() {
                 })}
                 {!filtered.length && (
                   <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={5}>
+                    <td className="py-6 text-center text-slate-500" colSpan={6}>
                       No enrollments found.
                     </td>
                   </tr>
