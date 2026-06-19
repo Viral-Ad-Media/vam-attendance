@@ -97,12 +97,12 @@ export default function SignupPage() {
           </div>
 
           {error && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </div>
           )}
           {success && (
-            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
               {success}
             </div>
           )}
@@ -119,7 +119,7 @@ export default function SignupPage() {
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="John Doe"
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 required
               />
             </div>
@@ -135,7 +135,7 @@ export default function SignupPage() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 required
               />
             </div>
@@ -152,7 +152,7 @@ export default function SignupPage() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 pr-11 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 pr-11 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   required
                 />
                 <button
@@ -200,20 +200,20 @@ export default function SignupPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 required
               />
             </div>
 
             <label className="flex items-start gap-2 text-sm text-slate-600">
-              <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600" required />
+              <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary" required />
               <span>
                 I agree to the{" "}
-                <Link href="/terms" className="font-semibold text-sky-700 hover:text-sky-800">
+                <Link href="/terms" className="font-semibold text-primary hover:brightness-90">
                   Terms of Service
                 </Link>{" "}
                 and{" "}
-                <Link href="/privacy" className="font-semibold text-sky-700 hover:text-sky-800">
+                <Link href="/privacy" className="font-semibold text-primary hover:brightness-90">
                   Privacy Policy
                 </Link>
               </span>
@@ -222,7 +222,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading || formData.password !== formData.confirmPassword}
-              className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+            className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
             >
               {loading ? "Creating account..." : "Create Account"}
             </button>
@@ -230,7 +230,7 @@ export default function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-slate-600">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-sky-700 hover:text-sky-800">
+            <Link href="/login" className="font-semibold text-primary hover:brightness-90">
               Sign in
             </Link>
           </p>

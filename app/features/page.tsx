@@ -12,7 +12,7 @@ const features = [
     icon: Clock,
     title: "Real-time tracking",
     description: "Mark attendance from web and keep records instantly synchronized.",
-    tone: "text-sky-600",
+    tone: "text-primary",
   },
   {
     icon: BarChart3,
@@ -64,6 +64,7 @@ export default function FeaturesPage() {
       <Header />
 
       <section className="marketing-shell marketing-section text-center">
+        <span className="section-eyebrow">Operational toolkit</span>
         <h1 className="soft-title">Everything your team needs, nothing they do not</h1>
         <p className="soft-subtitle mx-auto mt-4 max-w-3xl">
           VAM Attendance focuses on clear operations, reliable data capture, and readable reporting
@@ -76,7 +77,7 @@ export default function FeaturesPage() {
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
-              <article key={feature.title} className="glass-card p-5">
+              <article key={feature.title} className="glass-card p-5 transition hover:-translate-y-0.5 hover:shadow-md">
                 <Icon className={`h-8 w-8 ${feature.tone}`} />
                 <h2 className="mt-4 text-lg font-semibold text-slate-900">{feature.title}</h2>
                 <p className="mt-2 text-sm text-slate-600">{feature.description}</p>

@@ -35,6 +35,7 @@ export default function ContactPage() {
       <Header />
 
       <section className="marketing-shell marketing-section text-center">
+        <span className="section-eyebrow">Contact</span>
         <h1 className="soft-title">Talk to our team</h1>
         <p className="soft-subtitle mx-auto mt-4 max-w-3xl">
           Send your questions, implementation details, or partnership requests and we will respond.
@@ -57,7 +58,7 @@ export default function ContactPage() {
                   value={form.name}
                   onChange={handleChange}
                   placeholder="Your name"
-                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   required
                 />
               </div>
@@ -72,7 +73,7 @@ export default function ContactPage() {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="your@email.com"
-                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   required
                 />
               </div>
@@ -87,7 +88,7 @@ export default function ContactPage() {
                   value={form.subject}
                   onChange={handleChange}
                   placeholder="How can we help?"
-                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   required
                 />
               </div>
@@ -102,18 +103,18 @@ export default function ContactPage() {
                   onChange={handleChange}
                   placeholder="Your message..."
                   rows={5}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   required
                 />
               </div>
               <button
                 type="submit"
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white transition hover:brightness-105"
               >
                 Send Message
               </button>
               {submitted && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                   Message sent successfully. We will get back to you soon.
                 </div>
               )}
@@ -124,7 +125,7 @@ export default function ContactPage() {
             <h2 className="text-2xl font-semibold text-slate-900">Contact details</h2>
             <div className="mt-5 space-y-5">
               <div className="flex items-start gap-3">
-                <Mail className="mt-0.5 h-5 w-5 text-sky-600" />
+                <Mail className="mt-0.5 h-5 w-5 text-primary" />
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Email</p>
                   <p className="text-sm text-slate-600">support@vamattendance.com</p>

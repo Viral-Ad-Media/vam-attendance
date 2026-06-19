@@ -107,7 +107,7 @@ function formatDateTime(value?: string | null) {
 function statusClass(status: EnrollmentStatus | AttendanceStatus) {
   if (status === "active" || status === "present") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "late" || status === "paused") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (status === "completed") return "border-sky-200 bg-sky-50 text-sky-700";
+  if (status === "completed") return "border-primary/20 bg-primary/10 text-primary";
   return "border-red-200 bg-red-50 text-red-700";
 }
 
@@ -246,7 +246,7 @@ export default function StudentProfilePageClient() {
             <CardContent className="p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <GraduationCap className="h-7 w-7" />
                   </div>
                   <div>

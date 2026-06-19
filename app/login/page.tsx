@@ -86,7 +86,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 required
               />
             </div>
@@ -102,7 +102,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 pr-11 text-sm shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 pr-11 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   required
                 />
                 <button
@@ -117,16 +117,16 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-slate-600">
-                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-sky-600" />
+                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-primary" />
                 Remember me
               </label>
-              <Link href="/forgot-password" className="font-semibold text-sky-700 hover:text-sky-800">
+              <Link href="/forgot-password" className="font-semibold text-primary hover:brightness-90">
                 Forgot password?
               </Link>
             </div>
 
             {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -134,7 +134,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+              className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
@@ -142,7 +142,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-slate-600">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="font-semibold text-sky-700 hover:text-sky-800">
+            <Link href="/signup" className="font-semibold text-primary hover:brightness-90">
               Sign up
             </Link>
           </p>

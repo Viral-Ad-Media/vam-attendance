@@ -59,6 +59,7 @@ export default function PricingPage() {
       <Header />
 
       <section className="marketing-shell marketing-section text-center">
+        <span className="section-eyebrow">Transparent plans</span>
         <h1 className="soft-title">Simple pricing that scales with your school</h1>
         <p className="soft-subtitle mx-auto mt-4 max-w-3xl">
           Start small, expand as needed, and keep attendance operations consistent across teams.
@@ -70,10 +71,10 @@ export default function PricingPage() {
           {plans.map((plan) => (
             <article
               key={plan.name}
-              className={`glass-card relative p-6 ${plan.highlighted ? "ring-2 ring-sky-400/40" : ""}`}
+              className={`glass-card relative p-6 ${plan.highlighted ? "border-primary shadow-md ring-1 ring-primary/20" : ""}`}
             >
               {plan.highlighted && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
                   Most Popular
                 </span>
               )}
@@ -85,9 +86,9 @@ export default function PricingPage() {
               </div>
               <Link
                 href={plan.name === "Enterprise" ? "/contact" : "/signup"}
-                className={`mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl px-4 text-sm font-semibold transition ${
+                className={`mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
                   plan.highlighted
-                    ? "bg-slate-900 text-white hover:bg-slate-800"
+                    ? "bg-primary text-white hover:brightness-105"
                     : "border border-slate-300 bg-white/85 text-slate-800 hover:bg-slate-50"
                 }`}
               >
@@ -96,7 +97,7 @@ export default function PricingPage() {
               <ul className="mt-5 space-y-2">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-center gap-2 text-sm text-slate-700">
-                    <Check className="h-4 w-4 text-sky-600" />
+                    <Check className="h-4 w-4 text-primary" />
                     <span>{feature}</span>
                   </li>
                 ))}

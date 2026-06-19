@@ -84,7 +84,7 @@ function formatDate(value?: string | null) {
 function statusClass(status: EnrollmentStatus) {
   if (status === "active") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "paused") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (status === "completed") return "border-sky-200 bg-sky-50 text-sky-700";
+  if (status === "completed") return "border-primary/20 bg-primary/10 text-primary";
   return "border-red-200 bg-red-50 text-red-700";
 }
 
@@ -290,7 +290,7 @@ export default function TeacherProfilePageClient() {
             <CardContent className="p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Users className="h-7 w-7" />
                   </div>
                   <div>
@@ -333,7 +333,7 @@ export default function TeacherProfilePageClient() {
                         <div>
                           <Link
                             href={`/dashboard/students/${student.id}`}
-                            className="font-medium text-slate-900 hover:text-sky-700"
+                            className="font-medium text-slate-900 hover:text-primary"
                           >
                             {student.name}
                           </Link>

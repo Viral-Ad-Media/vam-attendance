@@ -12,13 +12,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100/70 via-slate-50 to-white">
+    <div className="min-h-screen bg-slate-50">
       {/* Provide account context to BOTH sidebar and pages */}
       <AccountProvider>
         {/* Mobile nav trigger */}
         <button
           type="button"
-          className="fixed left-3 top-3 z-30 inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:-translate-y-[1px] hover:shadow-md lg:hidden"
+          className="fixed left-3 top-3 z-30 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 lg:hidden"
           onClick={() => setMobileNavOpen(true)}
         >
           <Menu className="h-4 w-4" />
@@ -51,7 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="mx-auto flex w-full max-w-[1600px]">
           {/* Minimal, slim sidebar */}
-          <aside className="hidden shrink-0 border-r border-slate-200/60 bg-white/50 backdrop-blur lg:block">
+          <aside className="hidden shrink-0 border-r border-slate-200 bg-white lg:block">
             <Sidebar />
           </aside>
 

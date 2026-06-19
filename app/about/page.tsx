@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 const values = [
-  { icon: Users, title: "User-centered", description: "We optimize around real classroom workflows.", tone: "text-sky-600" },
+  { icon: Users, title: "User-centered", description: "We optimize around real classroom workflows.", tone: "text-primary" },
   { icon: Target, title: "Reliable", description: "Consistency matters when schools depend on records.", tone: "text-emerald-600" },
   { icon: Award, title: "Quality-first", description: "Clear interfaces and predictable behavior by default.", tone: "text-indigo-600" },
   { icon: Zap, title: "Always improving", description: "We keep refining speed, clarity, and usability.", tone: "text-amber-600" },
@@ -20,6 +20,7 @@ export default function AboutPage() {
       <Header />
 
       <section className="marketing-shell marketing-section text-center">
+        <span className="section-eyebrow">About the platform</span>
         <h1 className="soft-title">Built to make attendance operations easier to run</h1>
         <p className="soft-subtitle mx-auto mt-4 max-w-3xl">
           VAM Attendance was created to give educators and administrators a cleaner way to track

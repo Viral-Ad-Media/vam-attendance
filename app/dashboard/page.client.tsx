@@ -48,14 +48,14 @@ export default function OverviewPage() {
       <TopBar subtitle="Overview" title="Dashboard Overview" />
 
       {stats.loading && (
-        <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white/80 px-4 py-6 shadow-sm">
-          <Loader className="mr-2 h-5 w-5 animate-spin text-sky-600" />
+        <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-6 shadow-sm">
+          <Loader className="mr-2 h-5 w-5 animate-spin text-primary" />
           <p className="text-sm text-slate-600">Loading dashboard data…</p>
         </div>
       )}
 
       {stats.error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span className="font-semibold">Error:</span> {stats.error}
         </div>
       )}
@@ -63,10 +63,10 @@ export default function OverviewPage() {
       {!stats.loading && (
         <>
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-lg lg:col-span-2">
+            <div className="relative overflow-hidden rounded-lg bg-slate-950 p-5 text-white shadow-sm lg:col-span-2">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-[200px]">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-300">Attendance health</p>
+                  <p className="text-xs font-semibold text-slate-300">Attendance health</p>
                   <div className="mt-2 flex items-baseline gap-3">
                     <span className="text-4xl font-semibold leading-none">
                       {stats.avgAttendanceRate}%
@@ -82,14 +82,14 @@ export default function OverviewPage() {
                     <Button asChild className="bg-white text-slate-900 hover:bg-white/90">
                       <Link href="/dashboard/attendance">Mark attendance</Link>
                     </Button>
-                    <Button asChild variant="outline" className="border-slate-200 bg-white/10 text-white hover:bg-white/15">
+                    <Button asChild variant="outline" className="border-white/20 bg-white/10 text-white hover:bg-white/15">
                       <Link href="/dashboard/sessions">Schedule session</Link>
                     </Button>
                   </div>
                 </div>
                 <div className="grid w-full min-w-[220px] max-w-[360px] grid-cols-1 gap-3 sm:grid-cols-3">
                   {statPills.map((pill) => (
-                    <div key={pill.label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div key={pill.label} className="rounded-lg border border-white/10 bg-white/5 p-3">
                       <p className="text-[12px] text-slate-200/80">{pill.label}</p>
                       <p className="text-2xl font-semibold text-white">{pill.value}</p>
                       <p className="text-[11px] text-slate-200/70">{pill.meta}</p>
@@ -97,8 +97,6 @@ export default function OverviewPage() {
                   ))}
                 </div>
               </div>
-              <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-sky-500/20 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-16 right-8 h-40 w-40 rounded-full bg-cyan-400/10 blur-3xl" />
             </div>
 
             <Card>
@@ -108,7 +106,7 @@ export default function OverviewPage() {
               </CardHeader>
               <CardContent>
                 {nextSession ? (
-                  <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
                     <p className="text-sm font-semibold text-slate-900">{nextSession.title || "Session"}</p>
                     <p className="text-xs text-slate-600">
                       {new Date(nextSession.starts_at).toLocaleString("en-US", {
@@ -123,13 +121,13 @@ export default function OverviewPage() {
                     )}
                     <Link
                       href="/dashboard/sessions"
-                      className="inline-flex items-center text-xs font-semibold text-sky-700 hover:underline"
+                      className="inline-flex items-center text-xs font-semibold text-primary hover:underline"
                     >
                       View calendar →
                     </Link>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-600">
+                  <div className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-600">
                     No sessions on the calendar yet.
                   </div>
                 )}
@@ -144,7 +142,7 @@ export default function OverviewPage() {
                   <CardTitle className="text-sm font-semibold text-slate-800">Upcoming sessions</CardTitle>
                   <p className="text-xs text-slate-500">What’s planned next</p>
                 </div>
-                <Link href="/dashboard/sessions" className="text-xs font-semibold text-sky-700 hover:underline">
+                <Link href="/dashboard/sessions" className="text-xs font-semibold text-primary hover:underline">
                   View all
                 </Link>
               </CardHeader>
@@ -159,9 +157,9 @@ export default function OverviewPage() {
                       return (
                         <div
                           key={session.id}
-                          className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm hover:border-sky-200 hover:bg-sky-50/40"
+                          className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm hover:border-primary/40 hover:bg-slate-50"
                         >
-                          <div className="mt-1 h-10 w-10 rounded-lg bg-slate-100 text-center text-[11px] font-semibold text-slate-700 leading-tight flex flex-col items-center justify-center">
+                          <div className="mt-1 flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-slate-100 text-center text-[11px] font-semibold leading-tight text-slate-700">
                             <span>{dateStr}</span>
                             <span className="text-[10px] text-slate-500">{timeStr}</span>
                           </div>
@@ -188,7 +186,7 @@ export default function OverviewPage() {
                     })}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-600">
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-600">
                     <Calendar className="mb-2 h-8 w-8 text-slate-300" />
                     No sessions scheduled yet.
                   </div>

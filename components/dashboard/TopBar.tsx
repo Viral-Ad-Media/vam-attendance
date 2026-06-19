@@ -50,11 +50,11 @@ export function TopBar({
   };
 
   return (
-    <div className="sticky top-0 z-20 -mx-2 border-b border-white/75 bg-white/80 backdrop-blur-xl sm:mx-0">
-      <div className="px-3 sm:px-0 py-3 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+    <div className="sticky top-0 z-20 -mx-3 border-b border-slate-200 bg-slate-50/95 backdrop-blur sm:-mx-5 lg:-mx-7">
+      <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:flex-nowrap sm:px-5 lg:px-7">
         {/* Left: Title / Subtitle */}
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+          <div className="text-xs font-medium text-slate-500">
             <span suppressHydrationWarning>{computedSubtitle}</span>
           </div>
           <h1 className="truncate text-lg font-semibold text-slate-900 sm:text-2xl">
@@ -69,8 +69,8 @@ export function TopBar({
               <button
                 aria-label="Open profile menu"
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border border-white/75",
-                  "w-full justify-between bg-white/90 px-2.5 py-1.5 text-slate-700 shadow-sm transition hover:bg-white sm:w-auto sm:justify-center"
+                  "inline-flex items-center gap-2 rounded-lg border border-slate-200",
+                  "w-full justify-between bg-white px-2.5 py-1.5 text-slate-700 shadow-sm transition hover:bg-slate-50 sm:w-auto sm:justify-center"
                 )}
               >
                 <Avatar className="h-7 w-7">

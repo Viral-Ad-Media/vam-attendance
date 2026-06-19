@@ -44,38 +44,38 @@
 }
 
 :root {
-  --radius: 0.95rem;
-  --background: oklch(0.985 0.006 224);
-  --foreground: oklch(0.28 0.02 244);
-  --card: oklch(0.997 0.002 0);
-  --card-foreground: oklch(0.28 0.02 244);
-  --popover: oklch(0.997 0.002 0);
-  --popover-foreground: oklch(0.28 0.02 244);
-  --primary: oklch(0.57 0.16 248);
+  --radius: 0.5rem;
+  --background: oklch(0.985 0.004 105);
+  --foreground: oklch(0.22 0.018 245);
+  --card: oklch(0.998 0.001 105);
+  --card-foreground: oklch(0.22 0.018 245);
+  --popover: oklch(0.998 0.001 105);
+  --popover-foreground: oklch(0.22 0.018 245);
+  --primary: oklch(0.5 0.115 185);
   --primary-foreground: oklch(0.99 0.003 0);
-  --secondary: oklch(0.96 0.013 221);
-  --secondary-foreground: oklch(0.31 0.024 244);
-  --muted: oklch(0.965 0.009 235);
-  --muted-foreground: oklch(0.54 0.03 244);
-  --accent: oklch(0.958 0.024 185);
-  --accent-foreground: oklch(0.3 0.025 223);
+  --secondary: oklch(0.956 0.012 248);
+  --secondary-foreground: oklch(0.28 0.024 244);
+  --muted: oklch(0.957 0.006 105);
+  --muted-foreground: oklch(0.49 0.025 244);
+  --accent: oklch(0.94 0.04 78);
+  --accent-foreground: oklch(0.28 0.025 82);
   --destructive: oklch(0.62 0.215 25);
-  --border: oklch(0.91 0.015 240);
-  --input: oklch(0.91 0.015 240);
-  --ring: oklch(0.67 0.11 247);
-  --chart-1: oklch(0.61 0.16 248);
-  --chart-2: oklch(0.68 0.12 190);
-  --chart-3: oklch(0.54 0.13 275);
-  --chart-4: oklch(0.75 0.14 85);
+  --border: oklch(0.89 0.012 230);
+  --input: oklch(0.89 0.012 230);
+  --ring: oklch(0.58 0.09 185);
+  --chart-1: oklch(0.52 0.12 185);
+  --chart-2: oklch(0.58 0.12 248);
+  --chart-3: oklch(0.62 0.12 145);
+  --chart-4: oklch(0.74 0.13 78);
   --chart-5: oklch(0.64 0.14 20);
-  --sidebar: oklch(0.992 0.005 230);
-  --sidebar-foreground: oklch(0.29 0.02 244);
-  --sidebar-primary: oklch(0.57 0.16 248);
+  --sidebar: oklch(0.998 0.001 105);
+  --sidebar-foreground: oklch(0.25 0.02 244);
+  --sidebar-primary: oklch(0.5 0.115 185);
   --sidebar-primary-foreground: oklch(0.99 0.003 0);
-  --sidebar-accent: oklch(0.96 0.013 221);
-  --sidebar-accent-foreground: oklch(0.31 0.024 244);
-  --sidebar-border: oklch(0.9 0.015 240);
-  --sidebar-ring: oklch(0.67 0.11 247);
+  --sidebar-accent: oklch(0.956 0.012 248);
+  --sidebar-accent-foreground: oklch(0.28 0.024 244);
+  --sidebar-border: oklch(0.89 0.012 230);
+  --sidebar-ring: oklch(0.58 0.09 185);
 }
 
 .dark {
@@ -122,11 +122,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    background-image:
-      radial-gradient(1200px 600px at 20% -10%, color-mix(in oklab, var(--accent) 35%, transparent), transparent 62%),
-      radial-gradient(900px 460px at 100% 0%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 72%),
-      linear-gradient(180deg, color-mix(in oklab, var(--background) 92%, white), var(--background));
-    background-attachment: fixed;
+    background-image: linear-gradient(180deg, oklch(0.993 0.002 105), var(--background) 360px);
     font-feature-settings: "cv11" 1, "ss01" 1, "ss03" 1;
     line-height: 1.5;
   }
@@ -134,7 +130,7 @@
   h2,
   h3,
   h4 {
-    @apply tracking-tight text-balance;
+    @apply text-balance;
   }
   p {
     @apply leading-relaxed;
@@ -151,19 +147,27 @@
   }
 
   .marketing-section {
-    @apply py-16 sm:py-20 lg:py-24;
+    @apply py-14 sm:py-18 lg:py-20;
   }
 
   .glass-card {
-    @apply rounded-2xl border border-white/70 bg-white/80 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.45)] backdrop-blur-sm;
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm;
   }
 
   .soft-title {
-    @apply text-3xl font-semibold text-slate-900 sm:text-4xl lg:text-5xl;
+    @apply text-3xl font-semibold text-slate-950 sm:text-4xl lg:text-5xl;
   }
 
   .soft-subtitle {
     @apply text-base text-slate-600 sm:text-lg;
+  }
+
+  .section-eyebrow {
+    @apply mb-3 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800;
+  }
+
+  .surface-panel {
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm;
   }
 
   table {
@@ -180,7 +184,7 @@
   }
 
   tbody tr {
-    @apply transition-colors hover:bg-slate-50/70;
+    @apply transition-colors hover:bg-slate-50;
   }
 
   tbody tr:last-child td {

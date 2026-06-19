@@ -112,7 +112,7 @@ function Modal({
     >
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       <div
-        className={`relative ${maxWidth} w-full rounded-2xl border bg-white p-4 shadow-xl`}
+        className={`relative ${maxWidth} w-full rounded-lg border bg-white p-4 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -1108,14 +1108,14 @@ function AttendancePage() {
                           key={key}
                           className={`min-h-[110px] rounded-lg border p-2 text-xs ${
                             inMonth ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"
-                          } ${isToday ? "ring-1 ring-sky-500" : ""}`}
+                          } ${isToday ? "ring-1 ring-primary" : ""}`}
                         >
                           <div className="mb-1 flex items-center justify-between text-slate-600">
                             <span className="text-[11px] font-semibold">
                               {date.getDate()}
                             </span>
                             {isToday && (
-                              <span className="text-[10px] text-sky-600 font-semibold">
+                              <span className="text-[10px] font-semibold text-primary">
                                 Today
                               </span>
                             )}
@@ -1567,7 +1567,7 @@ function AttendancePage() {
 /* ---------------- Small KPI Card ---------------- */
 function Stat({ title, value }: { title: string; value: React.ReactNode }) {
   return (
-    <Card className="rounded-xl border bg-white/90">
+    <Card className="border bg-white">
       <CardContent className="py-3">
         <div className="text-[11px] text-slate-500">{title}</div>
         <div className="text-lg font-semibold text-slate-800">

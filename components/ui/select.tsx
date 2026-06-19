@@ -38,7 +38,7 @@ const SelectTrigger = React.forwardRef<
       data-size={size}
       className={cn(
         // base
-        "flex w-fit items-center justify-between gap-2 whitespace-nowrap rounded-xl border bg-white/90 px-3.5 py-2 text-sm shadow-sm transition-[color,box-shadow,border-color] outline-none",
+        "flex w-fit items-center justify-between gap-2 whitespace-nowrap rounded-lg border bg-white px-3.5 py-2 text-sm shadow-sm transition-[color,box-shadow,border-color] outline-none",
         // states
         "border-input focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         "aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive/20",
@@ -80,7 +80,7 @@ const SelectContent = React.forwardRef<
         data-slot="select-content"
         className={cn(
           // layout + surface
-          "z-[80] relative min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-xl border border-white/75 bg-popover/95 text-popover-foreground shadow-[0_16px_30px_-22px_rgba(15,23,42,0.5)] backdrop-blur-sm",
+          "z-[80] relative min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg",
           // animations
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",

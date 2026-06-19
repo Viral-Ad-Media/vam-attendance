@@ -17,8 +17,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[12rem] overflow-hidden rounded-xl border bg-white/95 p-1.5 shadow-[0_20px_36px_-24px_rgba(15,23,42,0.65)] outline-none",
-        "border-white/75 backdrop-blur supports-[backdrop-filter]:bg-white/90",
+        "z-50 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-white p-1.5 shadow-lg outline-none",
         className
       )}
       {...props}
@@ -50,7 +49,7 @@ const DropdownMenuLabel = React.forwardRef<
 >(({ className, inset, ...props }: { inset?: boolean } & React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label>, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn("px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500", inset && "pl-8", className)}
+    className={cn("px-2 py-1.5 text-xs font-semibold text-slate-500", inset && "pl-8", className)}
     {...props}
   />
 ));

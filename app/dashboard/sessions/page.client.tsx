@@ -341,12 +341,12 @@ export default function SessionsPage() {
                       key={key}
                       className={`min-h-[110px] rounded-lg border p-2 text-xs ${
                         inMonth ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"
-                      } ${isToday ? "ring-1 ring-sky-500" : ""}`}
+                      } ${isToday ? "ring-1 ring-primary" : ""}`}
                     >
                       <div className="mb-1 flex items-center justify-between text-slate-600">
                         <span className="text-[11px] font-semibold">{date.getDate()}</span>
                         {isToday && (
-                          <span className="text-[10px] text-sky-600 font-semibold">Today</span>
+                          <span className="text-[10px] font-semibold text-primary">Today</span>
                         )}
                       </div>
                       <div className="space-y-1">
@@ -416,7 +416,7 @@ export default function SessionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenNew(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -532,11 +532,11 @@ const getSessionStatus = (startsAt: string): SessionStatus =>
   new Date(startsAt).getTime() >= Date.now() ? "upcoming" : "completed";
 
 const sessionStatusStyles: Record<SessionStatus, string> = {
-  upcoming: "bg-sky-100 text-sky-800",
+  upcoming: "bg-primary/10 text-primary",
   completed: "bg-emerald-100 text-emerald-800",
 };
 
 const sessionSurfaceStyles: Record<SessionStatus, string> = {
-  upcoming: "border-sky-200 bg-sky-50",
+  upcoming: "border-primary/20 bg-primary/10",
   completed: "border-emerald-200 bg-emerald-50",
 };

@@ -189,10 +189,10 @@ export default function TeachersPage() {
               {filtered.map((t) => (
                 <div
                   key={t.id}
-                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition"
+                  className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-semibold">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
                       <Users className="h-5 w-5" />
                     </div>
                     <div>
@@ -302,7 +302,7 @@ export default function TeachersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenCourse(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-2xl rounded-2xl border bg-white p-4 shadow-xl"
+            className="relative w-full max-w-2xl rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -412,7 +412,7 @@ export default function TeachersPage() {
                         }}
                         className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${
                           selected
-                            ? "border-sky-200 bg-sky-50 text-sky-700"
+                            ? "border-primary/20 bg-primary/10 text-primary"
                             : "border-slate-200 bg-white text-slate-700"
                         }`}
                       >
@@ -514,7 +514,7 @@ export default function TeachersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenTeacherModal(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -627,7 +627,7 @@ export default function TeachersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditTeacher(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

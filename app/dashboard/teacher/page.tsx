@@ -15,7 +15,7 @@ export default function TeacherDashboard() {
       <TopBar title="Teacher Dashboard" subtitle="Your classes and attendance" showAccountInTitle={false} />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-lg">
+        <Card className="md:col-span-2 bg-slate-950 text-white shadow-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold">Welcome back</CardTitle>
             <p className="text-xs text-slate-200">

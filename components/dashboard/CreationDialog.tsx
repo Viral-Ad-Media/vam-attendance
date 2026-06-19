@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type Accent = "sky" | "emerald" | "amber";
+type Accent = "primary" | "emerald" | "amber";
 
 type CreationDialogStat = {
   label: string;
@@ -42,22 +42,19 @@ const accentStyles: Record<
     chip: string;
   }
 > = {
-  sky: {
-    header:
-      "bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_42%),linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.96))]",
-    icon: "bg-sky-500 text-white shadow-[0_14px_30px_-16px_rgba(14,165,233,0.85)]",
-    chip: "border-sky-200 bg-sky-50 text-sky-700",
+  primary: {
+    header: "bg-slate-50",
+    icon: "bg-primary text-white shadow-sm",
+    chip: "border-primary/20 bg-primary/10 text-primary",
   },
   emerald: {
-    header:
-      "bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_42%),linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.96))]",
-    icon: "bg-emerald-500 text-white shadow-[0_14px_30px_-16px_rgba(16,185,129,0.85)]",
+    header: "bg-slate-50",
+    icon: "bg-emerald-600 text-white shadow-sm",
     chip: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
   amber: {
-    header:
-      "bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.2),transparent_42%),linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.96))]",
-    icon: "bg-amber-500 text-white shadow-[0_14px_30px_-16px_rgba(245,158,11,0.9)]",
+    header: "bg-slate-50",
+    icon: "bg-amber-500 text-white shadow-sm",
     chip: "border-amber-200 bg-amber-50 text-amber-700",
   },
 };
@@ -72,7 +69,7 @@ export function CreationDialog({
   children,
   footer,
   stats = [],
-  accent = "sky",
+  accent = "primary",
   className,
 }: CreationDialogProps) {
   const accentStyle = accentStyles[accent];
@@ -86,17 +83,17 @@ export function CreationDialog({
               <div className="flex items-start gap-4 pr-8">
                 <div
                   className={cn(
-                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl",
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg",
                     accentStyle.icon
                   )}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  <p className="text-xs font-semibold text-slate-500">
                     {eyebrow}
                   </p>
-                  <DialogTitle className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                  <DialogTitle className="mt-2 text-2xl font-semibold text-slate-950">
                     {title}
                   </DialogTitle>
                   <DialogDescription className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
@@ -111,9 +108,9 @@ export function CreationDialog({
                 {stats.map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-2xl border border-white/80 bg-white/75 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-sm"
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <p className="text-xs font-semibold text-slate-500">
                       {stat.label}
                     </p>
                     <p className="mt-1 truncate text-sm font-semibold text-slate-900">{stat.value}</p>
@@ -153,14 +150,14 @@ export function CreationSection({
   return (
     <section
       className={cn(
-        "rounded-[24px] border border-slate-200 bg-slate-50/85 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
+        "rounded-lg border border-slate-200 bg-slate-50 p-4",
         className
       )}
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           {eyebrow ? (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <p className="text-xs font-semibold text-slate-500">
               {eyebrow}
             </p>
           ) : null}
@@ -180,7 +177,7 @@ export function CreationSection({
 
 export function CreationChip({
   children,
-  accent = "sky",
+  accent = "primary",
   className,
 }: {
   children: React.ReactNode;

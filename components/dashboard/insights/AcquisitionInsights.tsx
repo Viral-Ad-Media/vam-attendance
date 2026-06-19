@@ -56,7 +56,7 @@ function Pill({
   return (
     <div
       className={cn(
-        "rounded-xl border px-3 py-2 min-w-[160px] max-w-full",
+        "rounded-lg border px-3 py-2 min-w-[160px] max-w-full",
         subtle ? "bg-white/60" : "bg-white/90"
       )}
     >
@@ -79,15 +79,15 @@ function Pill({
 
 function InsightRow({ insight }: { insight: Insight }) {
   const label =
-    insight.dim === "placement" ? "PLACEMENT" :
-    insight.dim === "platform"  ? "PLATFORM"  :
-    insight.dim === "device"    ? "DEVICE"    :
-    insight.dim === "country"   ? "COUNTRY"   :
-    "AGE";
+    insight.dim === "placement" ? "Placement" :
+    insight.dim === "platform"  ? "Platform"  :
+    insight.dim === "device"    ? "Device"    :
+    insight.dim === "country"   ? "Country"   :
+    "Age";
 
   return (
     <div className="space-y-2">
-      <div className="text-[11px] tracking-wide text-slate-500 font-semibold">
+      <div className="text-xs font-semibold text-slate-500">
         {label}
       </div>
       <div className="flex flex-wrap gap-2">
@@ -120,7 +120,7 @@ export function AcquisitionInsights({
   );
 
   return (
-    <Card className="rounded-2xl border-2 border-white/50 bg-white/85 backdrop-blur">
+    <Card className="border bg-white">
       <CardHeader className="pb-1">
         <CardTitle className="text-base font-semibold text-slate-800">
           Acquisition Insights <span className="text-slate-500 text-sm">(last selection)</span>
@@ -133,8 +133,8 @@ export function AcquisitionInsights({
               <div key={i} className="space-y-2">
                 <div className="h-3 w-24 bg-slate-200/70 rounded" />
                 <div className="flex gap-2">
-                  <div className="h-14 w-40 bg-slate-200/70 rounded-xl" />
-                  <div className="h-14 w-40 bg-slate-200/70 rounded-xl" />
+                  <div className="h-14 w-40 rounded-lg bg-slate-200/70" />
+                  <div className="h-14 w-40 rounded-lg bg-slate-200/70" />
                 </div>
               </div>
             ))}

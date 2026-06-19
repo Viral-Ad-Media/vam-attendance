@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, User } from "lucide-react";
+import { CalendarCheck2, Menu, X, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -49,16 +49,18 @@ export function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/70 bg-white/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex min-w-0 items-center gap-2.5 font-bold text-lg">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-sky-600 via-blue-600 to-emerald-500 shadow-sm" />
-          <span className="hidden sm:inline truncate">VAM Attendance</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white shadow-sm">
+            <CalendarCheck2 className="h-4 w-4" />
+          </span>
+          <span className="hidden truncate text-slate-950 sm:inline">VAM Attendance</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1 rounded-xl border border-white/70 bg-white/70 p-1 shadow-sm">
+        <nav className="hidden items-center gap-1 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -66,7 +68,7 @@ export function Header() {
               className={cn(
                 "rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
                 isActive(item.href)
-                  ? "bg-slate-900 text-white shadow-sm"
+                  ? "bg-slate-950 text-white shadow-sm"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               )}
             >
@@ -87,7 +89,7 @@ export function Header() {
               </Link>
               <Link
                 href="/signup"
-                className="hidden items-center rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 xs:inline-flex"
+                className="hidden items-center rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 xs:inline-flex"
               >
                 Get Started
               </Link>
@@ -97,7 +99,7 @@ export function Header() {
           {loggedIn && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="hidden items-center gap-2 rounded-full border border-white/75 bg-white/85 px-2.5 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-white sm:inline-flex">
+                <button className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:inline-flex">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="/avatar.png" alt="Profile" />
                     <AvatarFallback>
@@ -145,7 +147,7 @@ export function Header() {
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="border-t border-slate-100 bg-white/95 px-4 py-3 shadow-md backdrop-blur md:hidden">
+        <div className="border-t border-slate-100 bg-white px-4 py-3 shadow-md md:hidden">
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
               <Link
@@ -155,7 +157,7 @@ export function Header() {
                 className={cn(
                   "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
                   isActive(item.href)
-                    ? "bg-slate-900 text-white"
+                    ? "bg-slate-950 text-white"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 )}
               >
@@ -174,7 +176,7 @@ export function Header() {
                 <Link
                   href="/signup"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm"
+                  className="rounded-lg bg-primary px-4 py-2 text-center text-sm font-semibold text-white shadow-sm"
                 >
                   Get Started
                 </Link>

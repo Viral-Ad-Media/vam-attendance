@@ -29,7 +29,7 @@ export default function ProfilePage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-sky-600 to-emerald-500 text-2xl font-bold text-white mb-4">
+                <div className="mb-4 inline-flex h-20 w-20 items-center justify-center rounded-full bg-slate-950 text-2xl font-bold text-white">
                   {profile.avatar}
                 </div>
                 <h2 className="text-xl font-semibold text-slate-900 mb-1">{profile.name}</h2>
@@ -65,7 +65,7 @@ export default function ProfilePage() {
                       type="text"
                       value={profile.name}
                       onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/25"
                     />
                   </div>
 
@@ -77,7 +77,7 @@ export default function ProfilePage() {
                       type="email"
                       value={profile.email}
                       onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/25"
                     />
                   </div>
 
@@ -89,7 +89,7 @@ export default function ProfilePage() {
                       type="tel"
                       value={profile.phone}
                       onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/25"
                     />
                   </div>
 
@@ -101,7 +101,7 @@ export default function ProfilePage() {
                       type="text"
                       value={profile.location}
                       onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/25"
                     />
                   </div>
 
@@ -112,7 +112,7 @@ export default function ProfilePage() {
                     <textarea
                       value={profile.bio}
                       onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/25"
                       rows={3}
                     />
                   </div>
@@ -135,7 +135,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3">
                     <User className="h-5 w-5 text-slate-400" />
                     <div>
-                      <p className="text-xs uppercase tracking-widest text-slate-500">
+                      <p className="text-xs font-medium text-slate-500">
                         Full Name
                       </p>
                       <p className="text-slate-900 font-medium">{profile.name}</p>
@@ -145,7 +145,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3">
                     <Mail className="h-5 w-5 text-slate-400" />
                     <div>
-                      <p className="text-xs uppercase tracking-widest text-slate-500">
+                      <p className="text-xs font-medium text-slate-500">
                         Email
                       </p>
                       <p className="text-slate-900 font-medium">{profile.email}</p>
@@ -155,7 +155,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3">
                     <Phone className="h-5 w-5 text-slate-400" />
                     <div>
-                      <p className="text-xs uppercase tracking-widest text-slate-500">
+                      <p className="text-xs font-medium text-slate-500">
                         Phone
                       </p>
                       <p className="text-slate-900 font-medium">{profile.phone}</p>
@@ -165,7 +165,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3">
                     <MapPin className="h-5 w-5 text-slate-400" />
                     <div>
-                      <p className="text-xs uppercase tracking-widest text-slate-500">
+                      <p className="text-xs font-medium text-slate-500">
                         Location
                       </p>
                       <p className="text-slate-900 font-medium">{profile.location}</p>
@@ -175,7 +175,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3">
                     <Calendar className="h-5 w-5 text-slate-400" />
                     <div>
-                      <p className="text-xs uppercase tracking-widest text-slate-500">
+                      <p className="text-xs font-medium text-slate-500">
                         Member Since
                       </p>
                       <p className="text-slate-900 font-medium">{profile.joinDate}</p>
@@ -183,7 +183,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="border-t border-slate-200 pt-4">
-                    <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">
+                    <p className="mb-2 text-xs font-medium text-slate-500">
                       Bio
                     </p>
                     <p className="text-slate-900">{profile.bio}</p>

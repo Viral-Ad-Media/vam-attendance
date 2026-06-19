@@ -416,7 +416,7 @@ export default function EnrollmentsPage() {
                   {selectedNewCourse.lead_teacher_id ? (
                     <CreationChip accent="emerald">Lead teacher available</CreationChip>
                   ) : (
-                    <CreationChip accent="sky">No lead teacher set</CreationChip>
+                    <CreationChip accent="primary">No lead teacher set</CreationChip>
                   )}
                 </div>
               ) : null}
@@ -474,7 +474,7 @@ export default function EnrollmentsPage() {
               title="Enrollment snapshot"
               description="A final glance at what this record will look like when you create it."
             >
-              <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]">
+              <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-base font-semibold text-slate-900">
                   {`${selectedNewStudent?.name || "Student"} -> ${selectedNewCourse?.title || "Course"}`}
                 </p>
@@ -484,7 +484,7 @@ export default function EnrollmentsPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <CreationChip accent="amber">{newEnrollStatus}</CreationChip>
                   {selectedNewCourse ? (
-                    <CreationChip accent="sky">
+                    <CreationChip accent="primary">
                       {selectedNewCourse.modality === "group" ? "Group" : "1-on-1"}
                     </CreationChip>
                   ) : null}
@@ -495,7 +495,7 @@ export default function EnrollmentsPage() {
         </div>
 
         {enrollmentError && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {enrollmentError}
           </div>
         )}
@@ -505,7 +505,7 @@ export default function EnrollmentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditEnrollment(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

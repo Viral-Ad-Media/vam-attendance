@@ -418,9 +418,9 @@ export default function StudentsPage() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {filtered.map((s) => (
-                    <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div key={s.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                           <GraduationCap className="h-4 w-4" />
                         </div>
                         <div>
@@ -642,9 +642,9 @@ export default function StudentsPage() {
             title="Profile snapshot"
             description="A quick read on how this student will appear across the dashboard."
           >
-            <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]">
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-sky-500 text-lg font-semibold text-white">
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-slate-950 text-lg font-semibold text-white">
                   {(newStudentName.trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 2) || "ST").toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -658,13 +658,13 @@ export default function StudentsPage() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {newStudentProgram.trim() ? <CreationChip accent="emerald">{newStudentProgram.trim()}</CreationChip> : null}
-                {newStudentClassName.trim() ? <CreationChip accent="sky">{newStudentClassName.trim()}</CreationChip> : null}
+                {newStudentClassName.trim() ? <CreationChip accent="primary">{newStudentClassName.trim()}</CreationChip> : null}
                 {newStudentCountry.trim() ? <CreationChip accent="amber">{newStudentCountry.trim()}</CreationChip> : null}
                 {!newStudentProgram.trim() && !newStudentClassName.trim() && !newStudentCountry.trim() ? (
                   <p className="text-xs text-slate-500">Add profile context to make this student easier to sort later.</p>
                 ) : null}
               </div>
-              <div className="mt-5 space-y-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+              <div className="mt-5 space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
                 <p>Phone: {newStudentPhone.trim() || "Not added yet"}</p>
                 <p>Program: {newStudentProgram.trim() || "Not assigned"}</p>
                 <p>Cohort: {newStudentClassName.trim() || "Not assigned"}</p>
@@ -674,7 +674,7 @@ export default function StudentsPage() {
         </div>
 
         {studentError && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {studentError}
           </div>
         )}
@@ -684,7 +684,7 @@ export default function StudentsPage() {
         <div className="fixed inset-0 z-[70] flex items-center justify-center" onMouseDown={() => setOpenEditStudent(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -816,7 +816,7 @@ export default function StudentsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
                 <p className="font-semibold text-slate-900">{selectedEnrollStudent?.name || "Student not selected"}</p>
                 <p className="mt-1 text-xs text-slate-500">
                   {selectedEnrollStudent?.email || "Select a student to see their details here."}
@@ -825,7 +825,7 @@ export default function StudentsPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <CreationChip accent="emerald">{selectedEnrollStudent.program}</CreationChip>
                     {selectedEnrollStudent.class_name ? (
-                      <CreationChip accent="sky">{selectedEnrollStudent.class_name}</CreationChip>
+                      <CreationChip accent="primary">{selectedEnrollStudent.class_name}</CreationChip>
                     ) : null}
                   </div>
                 ) : null}
@@ -886,7 +886,7 @@ export default function StudentsPage() {
                             selected ? prev.filter((id) => id !== course.id) : [...prev, course.id]
                           );
                         }}
-                        className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition ${
+                        className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left transition ${
                           selected
                             ? "border-amber-300 bg-amber-50 shadow-[0_12px_24px_-20px_rgba(245,158,11,0.8)]"
                             : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
@@ -899,10 +899,10 @@ export default function StudentsPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <CreationChip accent={selected ? "amber" : "sky"}>
+                          <CreationChip accent={selected ? "amber" : "primary"}>
                             {course.modality === "group" ? "Group" : "1-on-1"}
                           </CreationChip>
-                          <CreationChip accent={selected ? "emerald" : "sky"} className={!selected ? "border-slate-200 bg-slate-100 text-slate-600" : ""}>
+                          <CreationChip accent={selected ? "emerald" : "primary"} className={!selected ? "border-slate-200 bg-slate-100 text-slate-600" : ""}>
                             {selected ? "Selected" : "Available"}
                           </CreationChip>
                         </div>
@@ -910,7 +910,7 @@ export default function StudentsPage() {
                     );
                   })
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
                     No courses match that search.
                   </div>
                 )}
@@ -938,12 +938,12 @@ export default function StudentsPage() {
         </div>
 
         {enrollError && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {enrollError}
           </div>
         )}
         {enrollSuccess && (
-          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {enrollSuccess}
           </div>
         )}
@@ -953,7 +953,7 @@ export default function StudentsPage() {
         <div className="fixed inset-0 z-[70] flex items-center justify-center" onMouseDown={() => setDetailStudent(null)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-2xl rounded-2xl border bg-white p-4 shadow-xl"
+            className="relative w-full max-w-2xl rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

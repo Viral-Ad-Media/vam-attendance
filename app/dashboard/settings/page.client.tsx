@@ -4,6 +4,7 @@
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { Bell, Lock, Eye, Database, Trash2 } from "lucide-react";
 
@@ -40,12 +41,12 @@ export default function SettingsPage() {
     <div className="w-full">
       <TopBar title="Settings" subtitle="Settings" />
 
-      <div className="space-y-6 max-w-3xl">
+      <div className="max-w-3xl space-y-6">
         {/* Notifications */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-sky-600" />
+              <Bell className="h-5 w-5 text-primary" />
               <div>
                 <CardTitle>Notifications</CardTitle>
                 <CardDescription>Manage how you receive updates</CardDescription>
@@ -53,55 +54,51 @@ export default function SettingsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-slate-900">Email Notifications</p>
                 <p className="text-sm text-slate-600">Receive notifications via email</p>
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={settings.emailNotifications}
-                onChange={() => handleToggle("emailNotifications")}
-                className="h-4 w-4 cursor-pointer"
+                onCheckedChange={() => handleToggle("emailNotifications")}
+                aria-label="Email notifications"
               />
             </div>
 
-            <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-slate-900">Push Notifications</p>
                 <p className="text-sm text-slate-600">Get push notifications on your devices</p>
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={settings.pushNotifications}
-                onChange={() => handleToggle("pushNotifications")}
-                className="h-4 w-4 cursor-pointer"
+                onCheckedChange={() => handleToggle("pushNotifications")}
+                aria-label="Push notifications"
               />
             </div>
 
-            <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-slate-900">Weekly Reports</p>
                 <p className="text-sm text-slate-600">Receive weekly attendance reports</p>
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={settings.weeklyReports}
-                onChange={() => handleToggle("weeklyReports")}
-                className="h-4 w-4 cursor-pointer"
+                onCheckedChange={() => handleToggle("weeklyReports")}
+                aria-label="Weekly reports"
               />
             </div>
 
-            <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-slate-900">Monthly Reports</p>
                 <p className="text-sm text-slate-600">Receive monthly attendance reports</p>
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={settings.monthlyReports}
-                onChange={() => handleToggle("monthlyReports")}
-                className="h-4 w-4 cursor-pointer"
+                onCheckedChange={() => handleToggle("monthlyReports")}
+                aria-label="Monthly reports"
               />
             </div>
           </CardContent>
@@ -119,18 +116,17 @@ export default function SettingsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
               <div>
                 <p className="font-medium text-slate-900">Two-Factor Authentication</p>
                 <p className="text-sm text-slate-600">
                   Add an extra layer of security to your account
                 </p>
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={settings.twoFactorAuth}
-                onChange={() => handleToggle("twoFactorAuth")}
-                className="h-4 w-4 cursor-pointer"
+                onCheckedChange={() => handleToggle("twoFactorAuth")}
+                aria-label="Two-factor authentication"
               />
             </div>
 
@@ -164,7 +160,7 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setSettings({ ...settings, dataRetention: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/25"
               >
                 <option value="3months">3 months</option>
                 <option value="6months">6 months</option>

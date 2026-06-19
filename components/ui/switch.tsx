@@ -57,7 +57,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         className={cn(
           "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border transition-colors shadow-inner",
           on
-            ? "bg-sky-500/90 border-sky-600"
+            ? "bg-primary border-primary"
             : "bg-slate-200 border-slate-300",
           disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-105",
           className
