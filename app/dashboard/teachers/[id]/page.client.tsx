@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,6 +121,10 @@ export default function TeacherProfilePageClient() {
   const [attendance, setAttendance] = React.useState<Attendance[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [trainingPage, setTrainingPage] = React.useState(1);
+  const [trainingPageSize, setTrainingPageSize] = React.useState(5);
+  const [coursePage, setCoursePage] = React.useState(1);
+  const [coursePageSize, setCoursePageSize] = React.useState(10);
 
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -247,6 +252,14 @@ export default function TeacherProfilePageClient() {
         .sort((a, b) => a.student.name.localeCompare(b.student.name)),
     [activeStudentIds, studentById, teacherEnrollments]
   );
+  const trainingTotalPages = Math.max(1, Math.ceil(studentsInTraining.length / trainingPageSize));
+  React.useEffect(() => {
+    setTrainingPage((currentPage) => Math.min(currentPage, trainingTotalPages));
+  }, [trainingTotalPages]);
+  const paginatedStudentsInTraining = React.useMemo(() => {
+    const start = (trainingPage - 1) * trainingPageSize;
+    return studentsInTraining.slice(start, start + trainingPageSize);
+  }, [studentsInTraining, trainingPage, trainingPageSize]);
 
   const courseSummaries = React.useMemo(
     () =>
@@ -260,6 +273,14 @@ export default function TeacherProfilePageClient() {
         .sort((a, b) => a.course.title.localeCompare(b.course.title)),
     [courses, relatedCourseIds, teacherEnrollments]
   );
+  const courseTotalPages = Math.max(1, Math.ceil(courseSummaries.length / coursePageSize));
+  React.useEffect(() => {
+    setCoursePage((currentPage) => Math.min(currentPage, courseTotalPages));
+  }, [courseTotalPages]);
+  const paginatedCourseSummaries = React.useMemo(() => {
+    const start = (coursePage - 1) * coursePageSize;
+    return courseSummaries.slice(start, start + coursePageSize);
+  }, [courseSummaries, coursePage, coursePageSize]);
 
   return (
     <div className="space-y-4">
@@ -327,7 +348,7 @@ export default function TeacherProfilePageClient() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {studentsInTraining.length ? (
-                  studentsInTraining.map(({ student, activeEnrollments }) => (
+                  paginatedStudentsInTraining.map(({ student, activeEnrollments }) => (
                     <div key={student.id} className="rounded-lg border border-slate-200 bg-white p-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -360,6 +381,20 @@ export default function TeacherProfilePageClient() {
                     No active students assigned to this teacher.
                   </div>
                 )}
+                {studentsInTraining.length > 0 && (
+                  <PaginationControls
+                    page={trainingPage}
+                    pageSize={trainingPageSize}
+                    totalItems={studentsInTraining.length}
+                    itemLabel="students"
+                    pageSizeOptions={[5, 10, 25]}
+                    onPageChange={setTrainingPage}
+                    onPageSizeChange={(pageSize) => {
+                      setTrainingPageSize(pageSize);
+                      setTrainingPage(1);
+                    }}
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -379,7 +414,7 @@ export default function TeacherProfilePageClient() {
                       </tr>
                     </thead>
                     <tbody>
-                      {courseSummaries.map(({ course, total, active }) => (
+                      {paginatedCourseSummaries.map(({ course, total, active }) => (
                         <tr key={course.id} className="border-t border-slate-100">
                           <td className="py-2 pr-3 font-medium text-slate-800">{course.title}</td>
                           <td className="py-2 pr-3 text-slate-600">{course.course_type ?? course.modality}</td>
@@ -393,6 +428,19 @@ export default function TeacherProfilePageClient() {
                   <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
                     No courses assigned to this teacher.
                   </div>
+                )}
+                {courseSummaries.length > 0 && (
+                  <PaginationControls
+                    page={coursePage}
+                    pageSize={coursePageSize}
+                    totalItems={courseSummaries.length}
+                    itemLabel="courses"
+                    onPageChange={setCoursePage}
+                    onPageSizeChange={(pageSize) => {
+                      setCoursePageSize(pageSize);
+                      setCoursePage(1);
+                    }}
+                  />
                 )}
               </CardContent>
             </Card>

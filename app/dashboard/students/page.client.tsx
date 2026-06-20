@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,8 @@ export default function StudentsPage() {
   const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [query, setQuery] = React.useState("");
+  const [studentPage, setStudentPage] = React.useState(1);
+  const [studentPageSize, setStudentPageSize] = React.useState(10);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("list");
@@ -120,11 +123,23 @@ export default function StudentsPage() {
     load();
   }, []);
 
-  const filtered = students.filter((s) =>
-    [s.name, s.email, s.phone, s.country]
-      .filter(Boolean)
-      .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
+  const filtered = React.useMemo(
+    () =>
+      students.filter((s) =>
+        [s.name, s.email, s.phone, s.country]
+          .filter(Boolean)
+          .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
+      ),
+    [students, query]
   );
+  const studentTotalPages = Math.max(1, Math.ceil(filtered.length / studentPageSize));
+  React.useEffect(() => {
+    setStudentPage((currentPage) => Math.min(currentPage, studentTotalPages));
+  }, [studentTotalPages]);
+  const paginatedStudents = React.useMemo(() => {
+    const start = (studentPage - 1) * studentPageSize;
+    return filtered.slice(start, start + studentPageSize);
+  }, [filtered, studentPage, studentPageSize]);
   const deferredEnrollCourseSearch = React.useDeferredValue(enrollCourseSearch);
   const filteredEnrollCourses = React.useMemo(() => {
     const q = deferredEnrollCourseSearch.trim().toLowerCase();
@@ -334,7 +349,10 @@ export default function StudentsPage() {
                 <Input
                   placeholder="Search name / email / phone / country"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setStudentPage(1);
+                  }}
                   className="h-9 w-[260px]"
                 />
                 <Button onClick={openCreateStudentDialog}>+ Add Student</Button>
@@ -354,7 +372,7 @@ export default function StudentsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((s) => (
+                    {paginatedStudents.map((s) => (
                       <tr key={s.id} className="border-t">
                         <td className="py-2 pr-3">{s.name}</td>
                         <td className="py-2 pr-3">
@@ -417,7 +435,7 @@ export default function StudentsPage() {
                 </table>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {filtered.map((s) => (
+                  {paginatedStudents.map((s) => (
                     <div key={s.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="flex items-center gap-2">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
@@ -477,6 +495,19 @@ export default function StudentsPage() {
                     </div>
                   )}
                 </div>
+              )}
+              {filtered.length > 0 && (
+                <PaginationControls
+                  page={studentPage}
+                  pageSize={studentPageSize}
+                  totalItems={filtered.length}
+                  itemLabel="students"
+                  onPageChange={setStudentPage}
+                  onPageSizeChange={(pageSize) => {
+                    setStudentPageSize(pageSize);
+                    setStudentPage(1);
+                  }}
+                />
               )}
             </CardContent>
           </Card>

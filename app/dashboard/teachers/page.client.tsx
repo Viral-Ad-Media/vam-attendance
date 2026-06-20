@@ -4,6 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,8 @@ export default function TeachersPage() {
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [students, setStudents] = React.useState<Student[]>([]);
   const [query, setQuery] = React.useState("");
+  const [teacherPage, setTeacherPage] = React.useState(1);
+  const [teacherPageSize, setTeacherPageSize] = React.useState(10);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
@@ -96,11 +99,23 @@ export default function TeachersPage() {
     load();
   }, []);
 
-  const filtered = teachers.filter((t) =>
-    [t.name, t.email]
-      .filter(Boolean)
-      .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
+  const filtered = React.useMemo(
+    () =>
+      teachers.filter((t) =>
+        [t.name, t.email]
+          .filter(Boolean)
+          .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
+      ),
+    [teachers, query]
   );
+  const teacherTotalPages = Math.max(1, Math.ceil(filtered.length / teacherPageSize));
+  React.useEffect(() => {
+    setTeacherPage((currentPage) => Math.min(currentPage, teacherTotalPages));
+  }, [teacherTotalPages]);
+  const paginatedTeachers = React.useMemo(() => {
+    const start = (teacherPage - 1) * teacherPageSize;
+    return filtered.slice(start, start + teacherPageSize);
+  }, [filtered, teacherPage, teacherPageSize]);
 
   const deleteTeacher = async (teacher: Teacher) => {
     if (!confirm(`Delete teacher ${teacher.name}?`)) return;
@@ -157,7 +172,10 @@ export default function TeachersPage() {
             <Input
               placeholder="Search teachers..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setTeacherPage(1);
+              }}
               className="w-56"
             />
             <Button variant="secondary" onClick={() => setOpenCourse(true)}>
@@ -186,7 +204,7 @@ export default function TeachersPage() {
           )}
           {!loading && !error && viewMode === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {filtered.map((t) => (
+              {paginatedTeachers.map((t) => (
                 <div
                   key={t.id}
                   className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow"
@@ -246,7 +264,7 @@ export default function TeachersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((t) => (
+                {paginatedTeachers.map((t) => (
                   <tr key={t.id} className="border-t">
                     <td className="py-2 pr-3">{t.name}</td>
                     <td className="py-2 pr-3">
@@ -294,6 +312,19 @@ export default function TeachersPage() {
                 )}
               </tbody>
             </table>
+          )}
+          {!loading && !error && filtered.length > 0 && (
+            <PaginationControls
+              page={teacherPage}
+              pageSize={teacherPageSize}
+              totalItems={filtered.length}
+              itemLabel="teachers"
+              onPageChange={setTeacherPage}
+              onPageSizeChange={(pageSize) => {
+                setTeacherPageSize(pageSize);
+                setTeacherPage(1);
+              }}
+            />
           )}
         </CardContent>
       </Card>

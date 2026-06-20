@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,6 +144,10 @@ export default function StudentProfilePageClient() {
   const [attendance, setAttendance] = React.useState<Attendance[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [enrollmentPage, setEnrollmentPage] = React.useState(1);
+  const [enrollmentPageSize, setEnrollmentPageSize] = React.useState(5);
+  const [attendancePage, setAttendancePage] = React.useState(1);
+  const [attendancePageSize, setAttendancePageSize] = React.useState(10);
 
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -196,6 +201,14 @@ export default function StudentProfilePageClient() {
       ),
     [enrollments]
   );
+  const enrollmentTotalPages = Math.max(1, Math.ceil(sortedEnrollments.length / enrollmentPageSize));
+  React.useEffect(() => {
+    setEnrollmentPage((currentPage) => Math.min(currentPage, enrollmentTotalPages));
+  }, [enrollmentTotalPages]);
+  const paginatedEnrollments = React.useMemo(() => {
+    const start = (enrollmentPage - 1) * enrollmentPageSize;
+    return sortedEnrollments.slice(start, start + enrollmentPageSize);
+  }, [sortedEnrollments, enrollmentPage, enrollmentPageSize]);
 
   const attendanceRows = React.useMemo(
     () =>
@@ -208,6 +221,14 @@ export default function StudentProfilePageClient() {
         }),
     [attendance, sessionById]
   );
+  const attendanceTotalPages = Math.max(1, Math.ceil(attendanceRows.length / attendancePageSize));
+  React.useEffect(() => {
+    setAttendancePage((currentPage) => Math.min(currentPage, attendanceTotalPages));
+  }, [attendanceTotalPages]);
+  const paginatedAttendanceRows = React.useMemo(() => {
+    const start = (attendancePage - 1) * attendancePageSize;
+    return attendanceRows.slice(start, start + attendancePageSize);
+  }, [attendanceRows, attendancePage, attendancePageSize]);
 
   const activeEnrollments = enrollments.filter((enrollment) => enrollment.status === "active");
   const presentCount = attendance.filter((row) => row.status === "present").length;
@@ -289,7 +310,7 @@ export default function StudentProfilePageClient() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {sortedEnrollments.length ? (
-                  sortedEnrollments.map((enrollment) => {
+                  paginatedEnrollments.map((enrollment) => {
                     const course = courseById.get(enrollment.course_id);
                     const teacher =
                       (enrollment.teacher_id && teacherById.get(enrollment.teacher_id)) ||
@@ -317,6 +338,20 @@ export default function StudentProfilePageClient() {
                     No enrollments yet.
                   </div>
                 )}
+                {sortedEnrollments.length > 0 && (
+                  <PaginationControls
+                    page={enrollmentPage}
+                    pageSize={enrollmentPageSize}
+                    totalItems={sortedEnrollments.length}
+                    itemLabel="enrollments"
+                    pageSizeOptions={[5, 10, 25]}
+                    onPageChange={setEnrollmentPage}
+                    onPageSizeChange={(pageSize) => {
+                      setEnrollmentPageSize(pageSize);
+                      setEnrollmentPage(1);
+                    }}
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -343,7 +378,7 @@ export default function StudentProfilePageClient() {
                       </tr>
                     </thead>
                     <tbody>
-                      {attendanceRows.map(({ row, session }) => {
+                      {paginatedAttendanceRows.map(({ row, session }) => {
                         const course = session?.course_id ? courseById.get(session.course_id) : null;
                         return (
                           <tr key={row.id} className="border-t border-slate-100">
@@ -369,6 +404,19 @@ export default function StudentProfilePageClient() {
                   <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
                     No attendance history yet.
                   </div>
+                )}
+                {attendanceRows.length > 0 && (
+                  <PaginationControls
+                    page={attendancePage}
+                    pageSize={attendancePageSize}
+                    totalItems={attendanceRows.length}
+                    itemLabel="attendance marks"
+                    onPageChange={setAttendancePage}
+                    onPageSizeChange={(pageSize) => {
+                      setAttendancePageSize(pageSize);
+                      setAttendancePage(1);
+                    }}
+                  />
                 )}
               </CardContent>
             </Card>

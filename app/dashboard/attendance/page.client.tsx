@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -221,6 +222,8 @@ function AttendancePage() {
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [attendance, setAttendance] = React.useState<Attendance[]>([]);
   const [viewMode, setViewMode] = React.useState<"list" | "calendar">("list");
+  const [attendancePage, setAttendancePage] = React.useState(1);
+  const [attendancePageSize, setAttendancePageSize] = React.useState(10);
 
   // Filters & search
   const [teacherFilter] = React.useState<string>("all"); // hidden filter (always all)
@@ -372,19 +375,27 @@ function AttendancePage() {
       }),
     [attendance, deferredQuery, sessionMap, studentFilter, students, teacherFilter]
   );
-  const filteredAttendanceIds = React.useMemo(
-    () => filteredAttendance.map((record) => record.id),
-    [filteredAttendance]
+  const attendanceTotalPages = Math.max(1, Math.ceil(filteredAttendance.length / attendancePageSize));
+  React.useEffect(() => {
+    setAttendancePage((currentPage) => Math.min(currentPage, attendanceTotalPages));
+  }, [attendanceTotalPages]);
+  const paginatedAttendance = React.useMemo(() => {
+    const start = (attendancePage - 1) * attendancePageSize;
+    return filteredAttendance.slice(start, start + attendancePageSize);
+  }, [filteredAttendance, attendancePage, attendancePageSize]);
+  const visibleAttendanceIds = React.useMemo(
+    () => paginatedAttendance.map((record) => record.id),
+    [paginatedAttendance]
   );
   const selectedAttendance = React.useMemo(
     () => attendance.filter((record) => selectedAttendanceIds.includes(record.id)),
     [attendance, selectedAttendanceIds]
   );
-  const selectedFilteredAttendanceCount = filteredAttendanceIds.filter((id) =>
+  const selectedVisibleAttendanceCount = visibleAttendanceIds.filter((id) =>
     selectedAttendanceIds.includes(id)
   ).length;
-  const allFilteredAttendanceSelected =
-    filteredAttendanceIds.length > 0 && selectedFilteredAttendanceCount === filteredAttendanceIds.length;
+  const allVisibleAttendanceSelected =
+    visibleAttendanceIds.length > 0 && selectedVisibleAttendanceCount === visibleAttendanceIds.length;
 
   React.useEffect(() => {
     const currentIds = new Set(attendance.map((record) => record.id));
@@ -404,9 +415,9 @@ function AttendancePage() {
     setBulkAttendanceError(null);
     setBulkAttendanceSuccess(null);
     setSelectedAttendanceIds((prev) => {
-      const filteredIdSet = new Set(filteredAttendanceIds);
-      if (!checked) return prev.filter((id) => !filteredIdSet.has(id));
-      return Array.from(new Set([...prev, ...filteredAttendanceIds]));
+      const visibleIdSet = new Set(visibleAttendanceIds);
+      if (!checked) return prev.filter((id) => !visibleIdSet.has(id));
+      return Array.from(new Set([...prev, ...visibleAttendanceIds]));
     });
   };
 
@@ -1061,7 +1072,13 @@ function AttendancePage() {
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <div className="w-[200px]">
-                    <Select value={studentFilter} onValueChange={setStudentFilter}>
+                    <Select
+                      value={studentFilter}
+                      onValueChange={(value) => {
+                        setStudentFilter(value);
+                        setAttendancePage(1);
+                      }}
+                    >
                       <SelectTrigger className="h-9 w-full">
                         <SelectValue placeholder="Filter by student" />
                       </SelectTrigger>
@@ -1097,7 +1114,10 @@ function AttendancePage() {
                     <Input
                       placeholder="Search student / email / program…"
                       value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      onChange={(e) => {
+                        setQuery(e.target.value);
+                        setAttendancePage(1);
+                      }}
                       className="h-9"
                     />
                   </div>
@@ -1198,9 +1218,9 @@ function AttendancePage() {
                       <tr className="text-left text-slate-500">
                         <th className="w-10 py-2 pr-3">
                           <Checkbox
-                            checked={allFilteredAttendanceSelected}
-                            disabled={!filteredAttendanceIds.length || bulkAttendanceSaving}
-                            aria-label="Select all filtered attendance"
+                            checked={allVisibleAttendanceSelected}
+                            disabled={!visibleAttendanceIds.length || bulkAttendanceSaving}
+                            aria-label="Select visible attendance"
                             onCheckedChange={toggleFilteredAttendanceSelection}
                           />
                         </th>
@@ -1211,7 +1231,7 @@ function AttendancePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredAttendance.map((a) => {
+                      {paginatedAttendance.map((a) => {
                         const sess = sessionMap.get(a.session_id);
                         const stu = students.find((s) => s.id === a.student_id);
                         const selected = selectedAttendanceIds.includes(a.id);
@@ -1280,6 +1300,19 @@ function AttendancePage() {
                       )}
                     </tbody>
                   </table>
+                  {filteredAttendance.length > 0 && (
+                    <PaginationControls
+                      page={attendancePage}
+                      pageSize={attendancePageSize}
+                      totalItems={filteredAttendance.length}
+                      itemLabel="attendance marks"
+                      onPageChange={setAttendancePage}
+                      onPageSizeChange={(pageSize) => {
+                        setAttendancePageSize(pageSize);
+                        setAttendancePage(1);
+                      }}
+                    />
+                  )}
                 </div>
               )}
 

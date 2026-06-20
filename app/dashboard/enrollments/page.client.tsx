@@ -4,6 +4,7 @@
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,8 @@ export default function EnrollmentsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
+  const [enrollmentPage, setEnrollmentPage] = React.useState(1);
+  const [enrollmentPageSize, setEnrollmentPageSize] = React.useState(10);
 
   const [openNewEnrollment, setOpenNewEnrollment] = React.useState(false);
   const [newEnrollStudentId, setNewEnrollStudentId] = React.useState<string>("");
@@ -122,13 +125,24 @@ export default function EnrollmentsPage() {
       en.status.toLowerCase().includes(q)
     );
   }), [courseById, enrollments, query, studentById, teacherById]);
-  const filteredEnrollmentIds = React.useMemo(() => filtered.map((enrollment) => enrollment.id), [filtered]);
+  const enrollmentTotalPages = Math.max(1, Math.ceil(filtered.length / enrollmentPageSize));
+  React.useEffect(() => {
+    setEnrollmentPage((currentPage) => Math.min(currentPage, enrollmentTotalPages));
+  }, [enrollmentTotalPages]);
+  const paginatedEnrollments = React.useMemo(() => {
+    const start = (enrollmentPage - 1) * enrollmentPageSize;
+    return filtered.slice(start, start + enrollmentPageSize);
+  }, [filtered, enrollmentPage, enrollmentPageSize]);
+  const visibleEnrollmentIds = React.useMemo(
+    () => paginatedEnrollments.map((enrollment) => enrollment.id),
+    [paginatedEnrollments]
+  );
   const selectedEnrollments = React.useMemo(
     () => enrollments.filter((enrollment) => selectedEnrollmentIds.includes(enrollment.id)),
     [enrollments, selectedEnrollmentIds]
   );
-  const selectedFilteredCount = filteredEnrollmentIds.filter((id) => selectedEnrollmentIds.includes(id)).length;
-  const allFilteredSelected = filteredEnrollmentIds.length > 0 && selectedFilteredCount === filteredEnrollmentIds.length;
+  const selectedVisibleCount = visibleEnrollmentIds.filter((id) => selectedEnrollmentIds.includes(id)).length;
+  const allVisibleSelected = visibleEnrollmentIds.length > 0 && selectedVisibleCount === visibleEnrollmentIds.length;
 
   React.useEffect(() => {
     const currentIds = new Set(enrollments.map((enrollment) => enrollment.id));
@@ -148,9 +162,9 @@ export default function EnrollmentsPage() {
     setBulkError(null);
     setBulkSuccess(null);
     setSelectedEnrollmentIds((prev) => {
-      const filteredIdSet = new Set(filteredEnrollmentIds);
-      if (!checked) return prev.filter((id) => !filteredIdSet.has(id));
-      return Array.from(new Set([...prev, ...filteredEnrollmentIds]));
+      const visibleIdSet = new Set(visibleEnrollmentIds);
+      if (!checked) return prev.filter((id) => !visibleIdSet.has(id));
+      return Array.from(new Set([...prev, ...visibleEnrollmentIds]));
     });
   };
 
@@ -358,7 +372,10 @@ export default function EnrollmentsPage() {
               <Input
                 placeholder="Search student, course, teacher, status…"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setEnrollmentPage(1);
+                }}
                 className="h-9 w-[260px]"
               />
               <Button onClick={openCreateEnrollmentDialog}>+ New Enrollment</Button>
@@ -461,9 +478,9 @@ export default function EnrollmentsPage() {
                 <tr className="text-left text-slate-500">
                   <th className="w-10 py-2 pr-3">
                     <Checkbox
-                      checked={allFilteredSelected}
-                      disabled={!filteredEnrollmentIds.length || bulkSaving}
-                      aria-label="Select all filtered enrollments"
+                      checked={allVisibleSelected}
+                      disabled={!visibleEnrollmentIds.length || bulkSaving}
+                      aria-label="Select visible enrollments"
                       onCheckedChange={toggleFilteredSelection}
                     />
                   </th>
@@ -475,7 +492,7 @@ export default function EnrollmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((en) => {
+                {paginatedEnrollments.map((en) => {
                   const selected = selectedEnrollmentIds.includes(en.id);
                   return (
                     <tr key={en.id} className={`border-t ${selected ? "bg-primary/5" : ""}`}>
@@ -532,6 +549,19 @@ export default function EnrollmentsPage() {
                 )}
               </tbody>
             </table>
+            {filtered.length > 0 && (
+              <PaginationControls
+                page={enrollmentPage}
+                pageSize={enrollmentPageSize}
+                totalItems={filtered.length}
+                itemLabel="enrollments"
+                onPageChange={setEnrollmentPage}
+                onPageSizeChange={(pageSize) => {
+                  setEnrollmentPageSize(pageSize);
+                  setEnrollmentPage(1);
+                }}
+              />
+            )}
           </CardContent>
         </Card>
       )}

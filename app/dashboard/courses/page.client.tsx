@@ -4,6 +4,7 @@
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,8 @@ export default function CoursesPage() {
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [students, setStudents] = React.useState<Student[]>([]);
   const [query, setQuery] = React.useState("");
+  const [coursePage, setCoursePage] = React.useState(1);
+  const [coursePageSize, setCoursePageSize] = React.useState(10);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [openEditCourse, setOpenEditCourse] = React.useState(false);
@@ -141,15 +144,27 @@ export default function CoursesPage() {
     return map;
   }, [enrollments]);
 
-  const filteredCourses = courses.filter((c) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      c.title.toLowerCase().includes(q) ||
-      (c.description || "").toLowerCase().includes(q) ||
-      (c.modality || "").toLowerCase().includes(q)
-    );
-  });
+  const filteredCourses = React.useMemo(
+    () =>
+      courses.filter((c) => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        return (
+          c.title.toLowerCase().includes(q) ||
+          (c.description || "").toLowerCase().includes(q) ||
+          (c.modality || "").toLowerCase().includes(q)
+        );
+      }),
+    [courses, query]
+  );
+  const courseTotalPages = Math.max(1, Math.ceil(filteredCourses.length / coursePageSize));
+  React.useEffect(() => {
+    setCoursePage((currentPage) => Math.min(currentPage, courseTotalPages));
+  }, [courseTotalPages]);
+  const paginatedCourses = React.useMemo(() => {
+    const start = (coursePage - 1) * coursePageSize;
+    return filteredCourses.slice(start, start + coursePageSize);
+  }, [filteredCourses, coursePage, coursePageSize]);
 
   const filteredStudentOptions = React.useMemo(() => {
     const q = deferredStudentSearch.trim().toLowerCase();
@@ -341,7 +356,10 @@ export default function CoursesPage() {
                 <Input
                   placeholder="Search courses…"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setCoursePage(1);
+                  }}
                   className="h-9 w-[220px]"
                 />
                 <Button onClick={openNewCourseDialog}>
@@ -349,104 +367,119 @@ export default function CoursesPage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredCourses.map((course) => {
-                const stats = courseStats.get(course.id) || { total: 0, active: 0 };
-                const days =
-                  course.sessions_per_week && course.sessions_per_week > 0
-                    ? defaultDaysFromCount(course.sessions_per_week)
-                    : null;
-                return (
-                  <div key={course.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="h-4 w-4 text-slate-500" />
-                          <p className="text-sm font-semibold text-slate-900 line-clamp-1">{course.title}</p>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {paginatedCourses.map((course) => {
+                  const stats = courseStats.get(course.id) || { total: 0, active: 0 };
+                  const days =
+                    course.sessions_per_week && course.sessions_per_week > 0
+                      ? defaultDaysFromCount(course.sessions_per_week)
+                      : null;
+                  return (
+                    <div key={course.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-slate-500" />
+                            <p className="text-sm font-semibold text-slate-900 line-clamp-1">{course.title}</p>
+                          </div>
+                          <p className="text-xs text-slate-500 capitalize">{course.modality}</p>
                         </div>
-                        <p className="text-xs text-slate-500 capitalize">{course.modality}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditCourseId(course.id);
-                            setEditTitle(course.title || "");
-                            setEditDescription(course.description || "");
-                            setEditModality(course.modality || "group");
-                            setEditLeadTeacher(course.lead_teacher_id || null);
-                            setEditType(course.course_type || "");
-                            setEditDuration(course.duration_weeks?.toString() || "");
-                            setEditMeetingDays(
-                              course.sessions_per_week ? defaultDaysFromCount(course.sessions_per_week) : []
-                            );
-                            setEditMaxStudents(course.max_students?.toString() || "");
-                            setEditStartsAt(toLocalInput(course.starts_at));
-                            setEditEndsAt(toLocalInput(course.ends_at));
-                            setEditStudentSearch("");
-                            setCourseError(null);
-                            const existingEnrollments = enrollmentsByCourse.get(course.id) || [];
-                            setEditSelectedStudents(existingEnrollments.map((en) => en.student_id));
-                            setOpenEditCourse(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600 hover:bg-red-50"
-                          disabled={deletingCourseId === course.id}
-                          onClick={() => void deleteCourse(course)}
-                        >
-                          {deletingCourseId === course.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-xs text-slate-600 line-clamp-3">
-                      {course.description || "No description"}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-700">
-                        {stats.active}/{stats.total} active
-                      </Badge>
-                      {course.sessions_per_week ? (
-                        <Badge variant="outline" className="border-slate-200 text-slate-700">
-                          {course.sessions_per_week}x week
-                        </Badge>
-                      ) : null}
-                      {course.max_students ? (
-                        <Badge variant="outline" className="border-slate-200 text-slate-700">
-                          Max {course.max_students} students
-                        </Badge>
-                      ) : null}
-                      {days && (
-                        <div className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1">
-                          {days.map((d) => (
-                            <span key={d} className="text-[10px] font-semibold text-slate-700">
-                              {dayLabels[d]}
-                            </span>
-                          ))}
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditCourseId(course.id);
+                              setEditTitle(course.title || "");
+                              setEditDescription(course.description || "");
+                              setEditModality(course.modality || "group");
+                              setEditLeadTeacher(course.lead_teacher_id || null);
+                              setEditType(course.course_type || "");
+                              setEditDuration(course.duration_weeks?.toString() || "");
+                              setEditMeetingDays(
+                                course.sessions_per_week ? defaultDaysFromCount(course.sessions_per_week) : []
+                              );
+                              setEditMaxStudents(course.max_students?.toString() || "");
+                              setEditStartsAt(toLocalInput(course.starts_at));
+                              setEditEndsAt(toLocalInput(course.ends_at));
+                              setEditStudentSearch("");
+                              setCourseError(null);
+                              const existingEnrollments = enrollmentsByCourse.get(course.id) || [];
+                              setEditSelectedStudents(existingEnrollments.map((en) => en.student_id));
+                              setOpenEditCourse(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            disabled={deletingCourseId === course.id}
+                            onClick={() => void deleteCourse(course)}
+                          >
+                            {deletingCourseId === course.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
+                      </div>
+                      <p className="mt-2 text-xs text-slate-600 line-clamp-3">
+                        {course.description || "No description"}
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                          {stats.active}/{stats.total} active
+                        </Badge>
+                        {course.sessions_per_week ? (
+                          <Badge variant="outline" className="border-slate-200 text-slate-700">
+                            {course.sessions_per_week}x week
+                          </Badge>
+                        ) : null}
+                        {course.max_students ? (
+                          <Badge variant="outline" className="border-slate-200 text-slate-700">
+                            Max {course.max_students} students
+                          </Badge>
+                        ) : null}
+                        {days && (
+                          <div className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1">
+                            {days.map((d) => (
+                              <span key={d} className="text-[10px] font-semibold text-slate-700">
+                                {dayLabels[d]}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {course.starts_at && (
+                        <p className="mt-2 text-[11px] text-slate-500">
+                          Starts {new Date(course.starts_at).toLocaleDateString()}
+                        </p>
                       )}
                     </div>
-                    {course.starts_at && (
-                      <p className="mt-2 text-[11px] text-slate-500">
-                        Starts {new Date(course.starts_at).toLocaleDateString()}
-                      </p>
-                    )}
+                  );
+                })}
+                {!filteredCourses.length && (
+                  <div className="col-span-full rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-600">
+                    No courses yet. Create your first course to get started.
                   </div>
-                );
-              })}
-              {!filteredCourses.length && (
-                <div className="col-span-full rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-600">
-                  No courses yet. Create your first course to get started.
-                </div>
+                )}
+              </div>
+              {filteredCourses.length > 0 && (
+                <PaginationControls
+                  page={coursePage}
+                  pageSize={coursePageSize}
+                  totalItems={filteredCourses.length}
+                  itemLabel="courses"
+                  onPageChange={setCoursePage}
+                  onPageSizeChange={(pageSize) => {
+                    setCoursePageSize(pageSize);
+                    setCoursePage(1);
+                  }}
+                />
               )}
             </CardContent>
           </Card>
@@ -467,7 +500,7 @@ export default function CoursesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {courses.map((c) => {
+                  {paginatedCourses.map((c) => {
                     const stats = courseStats.get(c.id) || { total: 0, active: 0 };
                     return (
                       <tr key={c.id} className="border-t">
@@ -478,7 +511,7 @@ export default function CoursesPage() {
                       </tr>
                     );
                   })}
-                  {!courses.length && (
+                  {!filteredCourses.length && (
                     <tr>
                       <td className="py-6 text-center text-slate-500" colSpan={4}>
                         No courses found.

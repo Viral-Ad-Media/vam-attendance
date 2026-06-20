@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,8 @@ export default function SessionsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"list" | "calendar">("list");
   const [teacherFilter, setTeacherFilter] = React.useState<string>("all");
+  const [sessionPage, setSessionPage] = React.useState(1);
+  const [sessionPageSize, setSessionPageSize] = React.useState(10);
   const [calendarMonth, setCalendarMonth] = React.useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -204,6 +207,14 @@ export default function SessionsPage() {
         : sessions.filter((s) => s.teacher_id === teacherFilter),
     [sessions, teacherFilter]
   );
+  const sessionTotalPages = Math.max(1, Math.ceil(filteredSessions.length / sessionPageSize));
+  React.useEffect(() => {
+    setSessionPage((currentPage) => Math.min(currentPage, sessionTotalPages));
+  }, [sessionTotalPages]);
+  const paginatedSessions = React.useMemo(() => {
+    const start = (sessionPage - 1) * sessionPageSize;
+    return filteredSessions.slice(start, start + sessionPageSize);
+  }, [filteredSessions, sessionPage, sessionPageSize]);
   const sessionsByDay = React.useMemo(() => {
     const map = new Map<string, Session[]>();
     filteredSessions.forEach((s) => {
@@ -245,7 +256,13 @@ export default function SessionsPage() {
               New Session
             </Button>
             <div className="w-[190px]">
-              <Select value={teacherFilter} onValueChange={setTeacherFilter}>
+              <Select
+                value={teacherFilter}
+                onValueChange={(value) => {
+                  setTeacherFilter(value);
+                  setSessionPage(1);
+                }}
+              >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Filter by teacher" />
                 </SelectTrigger>
@@ -291,82 +308,97 @@ export default function SessionsPage() {
             </div>
           )}
           {!loading && !error && viewMode === "list" && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-2 pr-3">Title</th>
-                  <th className="py-2 pr-3">Teacher</th>
-                  <th className="py-2 pr-3">Starts</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Present / Total</th>
-                  <th className="py-2 pr-0 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSessions.map((s) => {
-                  const total = attendance.filter((a) => a.session_id === s.id).length;
-                  const present = attendance.filter(
-                    (a) => a.session_id === s.id && a.status === "present"
-                  ).length;
-                  const status = getSessionStatus(s.starts_at);
-                  return (
-                    <tr key={s.id} className="border-t">
-                      <td className="py-2 pr-3">{s.title ?? "Session"}</td>
-                      <td className="py-2 pr-3">{s.teacher_id ? tMap.get(s.teacher_id) ?? "—" : "—"}</td>
-                      <td className="py-2 pr-3">
-                        {new Date(s.starts_at).toLocaleString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${sessionStatusStyles[status]}`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        {present} / {total}
-                      </td>
-                      <td className="py-2 pr-0 text-right">
-                        <div className="inline-flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openEditSession(s)}
+            <div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500">
+                    <th className="py-2 pr-3">Title</th>
+                    <th className="py-2 pr-3">Teacher</th>
+                    <th className="py-2 pr-3">Starts</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">Present / Total</th>
+                    <th className="py-2 pr-0 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedSessions.map((s) => {
+                    const total = attendance.filter((a) => a.session_id === s.id).length;
+                    const present = attendance.filter(
+                      (a) => a.session_id === s.id && a.status === "present"
+                    ).length;
+                    const status = getSessionStatus(s.starts_at);
+                    return (
+                      <tr key={s.id} className="border-t">
+                        <td className="py-2 pr-3">{s.title ?? "Session"}</td>
+                        <td className="py-2 pr-3">{s.teacher_id ? tMap.get(s.teacher_id) ?? "—" : "—"}</td>
+                        <td className="py-2 pr-3">
+                          {new Date(s.starts_at).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${sessionStatusStyles[status]}`}
                           >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 hover:bg-red-50"
-                            disabled={deletingSessionId === s.id}
-                            onClick={() => void deleteSession(s)}
-                          >
-                            {deletingSessionId === s.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              "Delete"
-                            )}
-                          </Button>
-                        </div>
+                            {status}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3">
+                          {present} / {total}
+                        </td>
+                        <td className="py-2 pr-0 text-right">
+                          <div className="inline-flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditSession(s)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50"
+                              disabled={deletingSessionId === s.id}
+                              onClick={() => void deleteSession(s)}
+                            >
+                              {deletingSessionId === s.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Delete"
+                              )}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!filteredSessions.length && (
+                    <tr>
+                      <td className="py-6 text-center text-slate-500" colSpan={6}>
+                        No sessions yet.
                       </td>
                     </tr>
-                  );
-                })}
-                {!filteredSessions.length && (
-                  <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={6}>
-                      No sessions yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+              {filteredSessions.length > 0 && (
+                <PaginationControls
+                  page={sessionPage}
+                  pageSize={sessionPageSize}
+                  totalItems={filteredSessions.length}
+                  itemLabel="sessions"
+                  onPageChange={setSessionPage}
+                  onPageSizeChange={(pageSize) => {
+                    setSessionPageSize(pageSize);
+                    setSessionPage(1);
+                  }}
+                />
+              )}
+            </div>
           )}
 
           {!loading && !error && viewMode === "calendar" && (
