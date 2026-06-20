@@ -5,6 +5,7 @@ import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -178,6 +179,16 @@ const fmtDate = (iso: string) => {
   }
 };
 
+async function readResponseError(response: Response, fallback: string) {
+  const text = await response.text();
+  try {
+    const parsed = JSON.parse(text) as { error?: string; message?: string };
+    return parsed.error || parsed.message || fallback;
+  } catch {
+    return text || fallback;
+  }
+}
+
 const statusSurface: Record<Status, string> = {
   present: "border-green-200 bg-green-50/70",
   absent: "border-red-200 bg-red-50/70",
@@ -268,6 +279,11 @@ function AttendancePage() {
     session_id: string;
     student_id: string;
   } | null>(null);
+  const [selectedAttendanceIds, setSelectedAttendanceIds] = React.useState<string[]>([]);
+  const [bulkAttendStatus, setBulkAttendStatus] = React.useState<Status | "keep">("keep");
+  const [bulkAttendanceSaving, setBulkAttendanceSaving] = React.useState(false);
+  const [bulkAttendanceError, setBulkAttendanceError] = React.useState<string | null>(null);
+  const [bulkAttendanceSuccess, setBulkAttendanceSuccess] = React.useState<string | null>(null);
 
   // CONFIRM deletions
   const [confirmTeacher, setConfirmTeacher] = React.useState<{
@@ -343,12 +359,62 @@ function AttendancePage() {
         if (studentFilter !== "all" && a.student_id !== studentFilter) return false;
         if (teacherFilter !== "all") {
           const sess = sessionMap.get(a.session_id);
-          return sess?.teacher_id === teacherFilter;
+          if (sess?.teacher_id !== teacherFilter) return false;
+        }
+        const q = deferredQuery.trim().toLowerCase();
+        if (q) {
+          const student = students.find((s) => s.id === a.student_id);
+          const session = sessionMap.get(a.session_id);
+          const haystack = `${student?.name ?? ""} ${student?.email ?? ""} ${student?.program ?? ""} ${session?.title ?? ""}`.toLowerCase();
+          return haystack.includes(q);
         }
         return true;
       }),
-    [attendance, studentFilter, teacherFilter, sessionMap]
+    [attendance, deferredQuery, sessionMap, studentFilter, students, teacherFilter]
   );
+  const filteredAttendanceIds = React.useMemo(
+    () => filteredAttendance.map((record) => record.id),
+    [filteredAttendance]
+  );
+  const selectedAttendance = React.useMemo(
+    () => attendance.filter((record) => selectedAttendanceIds.includes(record.id)),
+    [attendance, selectedAttendanceIds]
+  );
+  const selectedFilteredAttendanceCount = filteredAttendanceIds.filter((id) =>
+    selectedAttendanceIds.includes(id)
+  ).length;
+  const allFilteredAttendanceSelected =
+    filteredAttendanceIds.length > 0 && selectedFilteredAttendanceCount === filteredAttendanceIds.length;
+
+  React.useEffect(() => {
+    const currentIds = new Set(attendance.map((record) => record.id));
+    setSelectedAttendanceIds((prev) => prev.filter((id) => currentIds.has(id)));
+  }, [attendance]);
+
+  const toggleAttendanceSelection = (id: string, checked: boolean) => {
+    setBulkAttendanceError(null);
+    setBulkAttendanceSuccess(null);
+    setSelectedAttendanceIds((prev) => {
+      if (checked) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((existingId) => existingId !== id);
+    });
+  };
+
+  const toggleFilteredAttendanceSelection = (checked: boolean) => {
+    setBulkAttendanceError(null);
+    setBulkAttendanceSuccess(null);
+    setSelectedAttendanceIds((prev) => {
+      const filteredIdSet = new Set(filteredAttendanceIds);
+      if (!checked) return prev.filter((id) => !filteredIdSet.has(id));
+      return Array.from(new Set([...prev, ...filteredAttendanceIds]));
+    });
+  };
+
+  const clearAttendanceSelection = () => {
+    setSelectedAttendanceIds([]);
+    setBulkAttendanceError(null);
+    setBulkAttendanceSuccess(null);
+  };
 
   const filteredSessions = React.useMemo(
     () =>
@@ -692,6 +758,70 @@ function AttendancePage() {
     await reload();
   };
 
+  const applyBulkAttendanceStatus = async () => {
+    if (!selectedAttendanceIds.length) return;
+    if (bulkAttendStatus === "keep") {
+      setBulkAttendanceError("Choose a status before applying changes.");
+      setBulkAttendanceSuccess(null);
+      return;
+    }
+
+    setBulkAttendanceSaving(true);
+    setBulkAttendanceError(null);
+    setBulkAttendanceSuccess(null);
+    try {
+      await Promise.all(
+        selectedAttendanceIds.map(async (id) => {
+          const res = await fetch(`/api/attendance/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: bulkAttendStatus }),
+          });
+          if (!res.ok) throw new Error(await readResponseError(res, "Failed to update attendance"));
+        })
+      );
+
+      const changedCount = selectedAttendanceIds.length;
+      await reload();
+      setSelectedAttendanceIds([]);
+      setBulkAttendStatus("keep");
+      setBulkAttendanceSuccess(`${changedCount} attendance mark${changedCount === 1 ? "" : "s"} updated.`);
+    } catch (err) {
+      setBulkAttendanceError(err instanceof Error ? err.message : "Failed to update attendance");
+    } finally {
+      setBulkAttendanceSaving(false);
+    }
+  };
+
+  const deleteBulkAttendance = async () => {
+    if (!selectedAttendanceIds.length) return;
+    const confirmed = confirm(
+      `Delete ${selectedAttendanceIds.length} selected attendance mark${selectedAttendanceIds.length === 1 ? "" : "s"}?`
+    );
+    if (!confirmed) return;
+
+    setBulkAttendanceSaving(true);
+    setBulkAttendanceError(null);
+    setBulkAttendanceSuccess(null);
+    try {
+      await Promise.all(
+        selectedAttendanceIds.map(async (id) => {
+          const res = await fetch(`/api/attendance/${id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error(await readResponseError(res, "Failed to delete attendance"));
+        })
+      );
+
+      const removedCount = selectedAttendanceIds.length;
+      await reload();
+      setSelectedAttendanceIds([]);
+      setBulkAttendanceSuccess(`${removedCount} attendance mark${removedCount === 1 ? "" : "s"} deleted.`);
+    } catch (err) {
+      setBulkAttendanceError(err instanceof Error ? err.message : "Failed to delete attendance");
+    } finally {
+      setBulkAttendanceSaving(false);
+    }
+  };
+
   /* ------------ Charts data ------------ */
   const sessionChart = React.useMemo(
     () =>
@@ -984,76 +1114,173 @@ function AttendancePage() {
             </CardHeader>
             <CardContent className="overflow-x-auto pt-0">
               {viewMode === "list" && (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-slate-500">
-                      <th className="py-2 pr-3">Session</th>
-                      <th className="py-2 pr-3">Student</th>
-                      <th className="py-2 pr-3">Status</th>
-                      <th className="py-2 pr-0 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAttendance.map((a) => {
-                      const sess = sessionMap.get(a.session_id);
-                      const stu = students.find((s) => s.id === a.student_id);
-                      return (
-                        <tr
-                          key={`${a.session_id}:${a.student_id}`}
-                          className="border-t"
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {selectedAttendanceIds.length
+                            ? `${selectedAttendanceIds.length} selected`
+                            : "Bulk edit attendance"}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Apply one status to selected attendance marks or delete them in one pass.
+                        </p>
+                      </div>
+                      {selectedAttendanceIds.length ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearAttendanceSelection}
+                          disabled={bulkAttendanceSaving}
                         >
-                          <td className="py-2 pr-3">
-                            {(sess?.title ?? "Session")} •{" "}
-                            {sess ? fmtDate(sess.starts_at) : ""}
-                          </td>
-                          <td className="py-2 pr-3">
-                            {stu?.name ?? "—"}
-                          </td>
-                          <td className="py-2 pr-3">
-                            {renderStatusBadge(a.status)}
-                          </td>
-                          <td className="py-2 pr-0 text-right">
-                            <div className="inline-flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => onOpenEditAttendance(a)}
-                              >
-                                <Pencil className="mr-1 h-4 w-4" /> Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 hover:bg-red-50"
-                                onClick={() =>
-                                  setConfirmAttendance({
-                                    open: true,
-                                    id: a.id,
-                                    label: `${stu?.name ?? "Student"} • ${
-                                      sess?.title ?? "Session"
-                                    }`,
-                                  })
-                                }
-                              >
-                                <Trash2 className="mr-1 h-4 w-4" /> Delete
-                              </Button>
-                            </div>
+                          Clear Selection
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 grid gap-2 md:grid-cols-[minmax(150px,1fr)_auto_auto]">
+                      <Select
+                        value={bulkAttendStatus}
+                        onValueChange={(value: Status | "keep") => setBulkAttendStatus(value)}
+                        disabled={!selectedAttendanceIds.length || bulkAttendanceSaving}
+                      >
+                        <SelectTrigger className="h-9 w-full bg-white">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="keep">Choose status</SelectItem>
+                          <SelectItem value="present">Present</SelectItem>
+                          <SelectItem value="absent">Absent</SelectItem>
+                          <SelectItem value="late">Late</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        disabled={!selectedAttendanceIds.length || bulkAttendanceSaving}
+                        onClick={applyBulkAttendanceStatus}
+                      >
+                        {bulkAttendanceSaving ? <Loader className="h-4 w-4 animate-spin" /> : "Apply Status"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:bg-red-50"
+                        disabled={!selectedAttendanceIds.length || bulkAttendanceSaving}
+                        onClick={deleteBulkAttendance}
+                      >
+                        Delete Selected
+                      </Button>
+                    </div>
+                    {selectedAttendance.length ? (
+                      <p className="mt-2 text-xs text-slate-500">
+                        Selected:{" "}
+                        {selectedAttendance
+                          .slice(0, 3)
+                          .map((record) => students.find((s) => s.id === record.student_id)?.name ?? "Unknown student")
+                          .join(", ")}
+                        {selectedAttendance.length > 3 ? `, +${selectedAttendance.length - 3} more` : ""}
+                      </p>
+                    ) : null}
+                    {bulkAttendanceError ? (
+                      <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {bulkAttendanceError}
+                      </div>
+                    ) : null}
+                    {bulkAttendanceSuccess ? (
+                      <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                        {bulkAttendanceSuccess}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-slate-500">
+                        <th className="w-10 py-2 pr-3">
+                          <Checkbox
+                            checked={allFilteredAttendanceSelected}
+                            disabled={!filteredAttendanceIds.length || bulkAttendanceSaving}
+                            aria-label="Select all filtered attendance"
+                            onCheckedChange={toggleFilteredAttendanceSelection}
+                          />
+                        </th>
+                        <th className="py-2 pr-3">Session</th>
+                        <th className="py-2 pr-3">Student</th>
+                        <th className="py-2 pr-3">Status</th>
+                        <th className="py-2 pr-0 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAttendance.map((a) => {
+                        const sess = sessionMap.get(a.session_id);
+                        const stu = students.find((s) => s.id === a.student_id);
+                        const selected = selectedAttendanceIds.includes(a.id);
+                        return (
+                          <tr
+                            key={a.id}
+                            className={`border-t ${selected ? "bg-primary/5" : ""}`}
+                          >
+                            <td className="py-2 pr-3">
+                              <Checkbox
+                                checked={selected}
+                                disabled={bulkAttendanceSaving}
+                                aria-label={`Select attendance for ${stu?.name ?? "student"}`}
+                                onCheckedChange={(checked) => toggleAttendanceSelection(a.id, checked)}
+                              />
+                            </td>
+                            <td className="py-2 pr-3">
+                              {(sess?.title ?? "Session")} •{" "}
+                              {sess ? fmtDate(sess.starts_at) : ""}
+                            </td>
+                            <td className="py-2 pr-3">
+                              {stu?.name ?? "—"}
+                            </td>
+                            <td className="py-2 pr-3">
+                              {renderStatusBadge(a.status)}
+                            </td>
+                            <td className="py-2 pr-0 text-right">
+                              <div className="inline-flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onOpenEditAttendance(a)}
+                                >
+                                  <Pencil className="mr-1 h-4 w-4" /> Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:bg-red-50"
+                                  onClick={() =>
+                                    setConfirmAttendance({
+                                      open: true,
+                                      id: a.id,
+                                      label: `${stu?.name ?? "Student"} • ${
+                                        sess?.title ?? "Session"
+                                      }`,
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="mr-1 h-4 w-4" /> Delete
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {!filteredAttendance.length && (
+                        <tr>
+                          <td
+                            className="py-6 text-center text-slate-500"
+                            colSpan={5}
+                          >
+                            No attendance yet.
                           </td>
                         </tr>
-                      );
-                    })}
-                    {!filteredAttendance.length && (
-                      <tr>
-                        <td
-                          className="py-6 text-center text-slate-500"
-                          colSpan={4}
-                        >
-                          No attendance yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
 
               {viewMode === "calendar" && (
