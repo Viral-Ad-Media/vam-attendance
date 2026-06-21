@@ -90,6 +90,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
       children: [
         { href: "/dashboard/students", label: "Directory" },
         { href: "/dashboard/attendance", label: "Attendance" },
+        { href: "/dashboard/feedback", label: "Feedback" },
       ],
     },
 

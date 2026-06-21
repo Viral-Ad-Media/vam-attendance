@@ -167,6 +167,25 @@ CREATE TABLE IF NOT EXISTS attendance (
   UNIQUE(org_id, session_id, student_id)
 );
 
+CREATE TABLE IF NOT EXISTS student_feedback (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  teacher_id uuid REFERENCES teachers(id) ON DELETE SET NULL,
+  course_id uuid REFERENCES courses(id) ON DELETE SET NULL,
+  session_id uuid REFERENCES sessions(id) ON DELETE SET NULL,
+  rating int CHECK (rating BETWEEN 1 AND 5),
+  category text NOT NULL DEFAULT 'general' CHECK (category IN ('general','progress','participation','behavior','homework','assessment')),
+  sentiment text NOT NULL DEFAULT 'neutral' CHECK (sentiment IN ('positive','neutral','needs_attention')),
+  visibility text NOT NULL DEFAULT 'internal' CHECK (visibility IN ('internal','shareable')),
+  title text NOT NULL,
+  body text NOT NULL,
+  reviewed_at timestamptz DEFAULT now(),
+  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
 -- 2) Helper functions (after tables exist)
 CREATE OR REPLACE FUNCTION public.app_org_id()
 RETURNS uuid LANGUAGE sql STABLE AS $$
@@ -239,6 +258,9 @@ CREATE INDEX IF NOT EXISTS idx_courses_org_id ON courses(org_id);
 CREATE INDEX IF NOT EXISTS idx_courses_lead_teacher ON courses(lead_teacher_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_org_student ON enrollments(org_id, student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_org_course ON enrollments(org_id, course_id);
+CREATE INDEX IF NOT EXISTS idx_student_feedback_org_student ON student_feedback(org_id, student_id);
+CREATE INDEX IF NOT EXISTS idx_student_feedback_org_teacher ON student_feedback(org_id, teacher_id);
+CREATE INDEX IF NOT EXISTS idx_student_feedback_reviewed_at ON student_feedback(org_id, reviewed_at DESC);
 
 -- 4) Enable Row Level Security
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
@@ -253,6 +275,7 @@ ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_feedback ENABLE ROW LEVEL SECURITY;
 
 -- 5) Drop existing policies (idempotent)
 DO $$
@@ -369,6 +392,16 @@ CREATE POLICY "Attendance update by admins or teachers"
 CREATE POLICY "Attendance delete by admins or teachers"
   ON attendance FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
 
+CREATE POLICY "Student feedback readable by org members"
+  ON student_feedback FOR SELECT USING (public.app_is_org_member(org_id));
+CREATE POLICY "Student feedback insert by admins or teachers"
+  ON student_feedback FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
+CREATE POLICY "Student feedback update by admins or teachers"
+  ON student_feedback FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
+  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
+CREATE POLICY "Student feedback delete by admins or teachers"
+  ON student_feedback FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
+
 -- 7) Triggers: drop existing then create
 DO $$
 BEGIN
@@ -383,6 +416,7 @@ BEGIN
   PERFORM 1 FROM pg_trigger WHERE tgname = 'update_subscriptions_updated_at'; IF FOUND THEN EXECUTE 'DROP TRIGGER update_subscriptions_updated_at ON subscriptions'; END IF;
   PERFORM 1 FROM pg_trigger WHERE tgname = 'update_courses_updated_at';       IF FOUND THEN EXECUTE 'DROP TRIGGER update_courses_updated_at ON courses'; END IF;
   PERFORM 1 FROM pg_trigger WHERE tgname = 'update_enrollments_updated_at';   IF FOUND THEN EXECUTE 'DROP TRIGGER update_enrollments_updated_at ON enrollments'; END IF;
+  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_student_feedback_updated_at'; IF FOUND THEN EXECUTE 'DROP TRIGGER update_student_feedback_updated_at ON student_feedback'; END IF;
 END;
 $$;
 
@@ -397,3 +431,4 @@ CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions FOR EACH ROW
 CREATE TRIGGER update_attendance_updated_at BEFORE UPDATE ON attendance FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_courses_updated_at BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_enrollments_updated_at BEFORE UPDATE ON enrollments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_student_feedback_updated_at BEFORE UPDATE ON student_feedback FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

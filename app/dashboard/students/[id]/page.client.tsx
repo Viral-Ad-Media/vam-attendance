@@ -11,7 +11,9 @@ import {
   Clock,
   GraduationCap,
   Mail,
+  MessageSquareText,
   Phone,
+  Star,
   UserRound,
   XCircle,
 } from "lucide-react";
@@ -81,6 +83,40 @@ type Attendance = {
   noted_at?: string | null;
 };
 
+type FeedbackCategory = "general" | "progress" | "participation" | "behavior" | "homework" | "assessment";
+type FeedbackSentiment = "positive" | "neutral" | "needs_attention";
+
+type StudentFeedback = {
+  id: string;
+  student_id: string;
+  teacher_id?: string | null;
+  course_id?: string | null;
+  session_id?: string | null;
+  rating?: number | null;
+  category: FeedbackCategory;
+  sentiment: FeedbackSentiment;
+  visibility?: "internal" | "shareable";
+  title: string;
+  body: string;
+  reviewed_at?: string | null;
+  created_at?: string | null;
+};
+
+const feedbackCategoryLabels: Record<FeedbackCategory, string> = {
+  general: "General",
+  progress: "Progress",
+  participation: "Participation",
+  behavior: "Behavior",
+  homework: "Homework",
+  assessment: "Assessment",
+};
+
+const feedbackSentimentLabels: Record<FeedbackSentiment, string> = {
+  positive: "Positive",
+  neutral: "Neutral",
+  needs_attention: "Needs attention",
+};
+
 function getRouteId(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value ?? "";
 }
@@ -110,6 +146,26 @@ function statusClass(status: EnrollmentStatus | AttendanceStatus) {
   if (status === "late" || status === "paused") return "border-amber-200 bg-amber-50 text-amber-700";
   if (status === "completed") return "border-primary/20 bg-primary/10 text-primary";
   return "border-red-200 bg-red-50 text-red-700";
+}
+
+function feedbackSentimentClass(sentiment: FeedbackSentiment) {
+  if (sentiment === "positive") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (sentiment === "needs_attention") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function RatingStars({ rating }: { rating?: number | null }) {
+  if (!rating) return <span className="text-xs font-medium text-slate-500">No rating</span>;
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${rating} out of 5 stars`}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <Star
+          key={index}
+          className={index < rating ? "h-3.5 w-3.5 fill-amber-400 text-amber-400" : "h-3.5 w-3.5 text-slate-300"}
+        />
+      ))}
+    </span>
+  );
 }
 
 function StatTile({
@@ -142,12 +198,15 @@ export default function StudentProfilePageClient() {
   const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [attendance, setAttendance] = React.useState<Attendance[]>([]);
+  const [feedback, setFeedback] = React.useState<StudentFeedback[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [enrollmentPage, setEnrollmentPage] = React.useState(1);
   const [enrollmentPageSize, setEnrollmentPageSize] = React.useState(5);
   const [attendancePage, setAttendancePage] = React.useState(1);
   const [attendancePageSize, setAttendancePageSize] = React.useState(10);
+  const [feedbackPage, setFeedbackPage] = React.useState(1);
+  const [feedbackPageSize, setFeedbackPageSize] = React.useState(5);
 
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -156,7 +215,7 @@ export default function StudentProfilePageClient() {
       try {
         setLoading(true);
         setError(null);
-        const [studentRes, courseRes, teacherRes, enrollmentRes, sessionRes, attendanceRes] =
+        const [studentRes, courseRes, teacherRes, enrollmentRes, sessionRes, attendanceRes, feedbackRes] =
           await Promise.all([
             fetch(`/api/students/${studentId}`, { cache: "no-store" }),
             fetch("/api/courses", { cache: "no-store" }),
@@ -164,6 +223,7 @@ export default function StudentProfilePageClient() {
             fetch(`/api/enrollments?student_id=${studentId}`, { cache: "no-store" }),
             fetch("/api/sessions", { cache: "no-store" }),
             fetch(`/api/attendance?student_id=${studentId}`, { cache: "no-store" }),
+            fetch(`/api/student-feedback?student_id=${studentId}`, { cache: "no-store" }),
           ]);
 
         if (!studentRes.ok) throw new Error(await studentRes.text());
@@ -172,6 +232,7 @@ export default function StudentProfilePageClient() {
         if (!enrollmentRes.ok) throw new Error(await enrollmentRes.text());
         if (!sessionRes.ok) throw new Error(await sessionRes.text());
         if (!attendanceRes.ok) throw new Error(await attendanceRes.text());
+        if (!feedbackRes.ok) throw new Error(await feedbackRes.text());
 
         setStudent((await studentRes.json()) as Student);
         setCourses((await courseRes.json()) as Course[]);
@@ -179,6 +240,7 @@ export default function StudentProfilePageClient() {
         setEnrollments((await enrollmentRes.json()) as Enrollment[]);
         setSessions((await sessionRes.json()) as Session[]);
         setAttendance((await attendanceRes.json()) as Attendance[]);
+        setFeedback((await feedbackRes.json()) as StudentFeedback[]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load student profile");
       } finally {
@@ -229,6 +291,24 @@ export default function StudentProfilePageClient() {
     const start = (attendancePage - 1) * attendancePageSize;
     return attendanceRows.slice(start, start + attendancePageSize);
   }, [attendanceRows, attendancePage, attendancePageSize]);
+
+  const sortedFeedback = React.useMemo(
+    () =>
+      [...feedback].sort(
+        (a, b) =>
+          new Date(b.reviewed_at ?? b.created_at ?? 0).getTime() -
+          new Date(a.reviewed_at ?? a.created_at ?? 0).getTime()
+      ),
+    [feedback]
+  );
+  const feedbackTotalPages = Math.max(1, Math.ceil(sortedFeedback.length / feedbackPageSize));
+  React.useEffect(() => {
+    setFeedbackPage((currentPage) => Math.min(currentPage, feedbackTotalPages));
+  }, [feedbackTotalPages]);
+  const paginatedFeedback = React.useMemo(() => {
+    const start = (feedbackPage - 1) * feedbackPageSize;
+    return sortedFeedback.slice(start, start + feedbackPageSize);
+  }, [sortedFeedback, feedbackPage, feedbackPageSize]);
 
   const activeEnrollments = enrollments.filter((enrollment) => enrollment.status === "active");
   const presentCount = attendance.filter((row) => row.status === "present").length;
@@ -296,11 +376,12 @@ export default function StudentProfilePageClient() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <StatTile label="Enrollments" value={enrollments.length} icon={BookOpen} />
             <StatTile label="Active Courses" value={activeEnrollments.length} icon={Clock} />
             <StatTile label="Attendance Rate" value={`${attendanceRate}%`} icon={CheckCircle2} />
             <StatTile label="Absences" value={absentCount} icon={XCircle} />
+            <StatTile label="Reviews" value={feedback.length} icon={MessageSquareText} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
@@ -421,6 +502,76 @@ export default function StudentProfilePageClient() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-base">Feedback & Reviews</CardTitle>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/dashboard/feedback?student_id=${student.id}`}>
+                    <MessageSquareText className="h-4 w-4" />
+                    Open Reviews
+                  </Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {sortedFeedback.length ? (
+                paginatedFeedback.map((review) => {
+                  const course = review.course_id ? courseById.get(review.course_id) : null;
+                  const teacher =
+                    (review.teacher_id && teacherById.get(review.teacher_id)) ||
+                    (course?.lead_teacher_id && teacherById.get(course.lead_teacher_id)) ||
+                    null;
+                  const session = review.session_id ? sessionById.get(review.session_id) : null;
+
+                  return (
+                    <div key={review.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-slate-950">{review.title}</h3>
+                            <Badge variant="outline" className={feedbackSentimentClass(review.sentiment)}>
+                              {feedbackSentimentLabels[review.sentiment]}
+                            </Badge>
+                            <Badge variant="outline">{feedbackCategoryLabels[review.category]}</Badge>
+                          </div>
+                          <p className="mt-2 text-sm leading-6 text-slate-700">{review.body}</p>
+                          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+                            <span>{formatDate(review.reviewed_at)}</span>
+                            <span>{course?.title ?? "No course"}</span>
+                            <span>{teacher?.name ?? "No teacher"}</span>
+                            {session && <span>{session.title ?? formatDateTime(session.starts_at)}</span>}
+                          </div>
+                        </div>
+                        <div className="shrink-0">
+                          <RatingStars rating={review.rating} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+                  No feedback yet.
+                </div>
+              )}
+              {sortedFeedback.length > 0 && (
+                <PaginationControls
+                  page={feedbackPage}
+                  pageSize={feedbackPageSize}
+                  totalItems={sortedFeedback.length}
+                  itemLabel="reviews"
+                  pageSizeOptions={[5, 10, 25]}
+                  onPageChange={setFeedbackPage}
+                  onPageSizeChange={(pageSize) => {
+                    setFeedbackPageSize(pageSize);
+                    setFeedbackPage(1);
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
