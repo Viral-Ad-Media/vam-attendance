@@ -32,13 +32,26 @@ type Student = {
 
 type Course = { id: string; title: string; modality: "group" | "1on1" };
 type Session = { id: string; title?: string | null; starts_at: string };
+type EnrollmentStatus = "active" | "paused" | "completed" | "dropped";
 type Enrollment = {
   id: string;
   student_id: string;
   course_id: string;
-  status: "active" | "paused" | "completed" | "dropped";
+  status: EnrollmentStatus;
   enrolled_at?: string;
 };
+
+type NewStudentCourseMode = "none" | "existing" | "new";
+
+async function readResponseError(response: Response, fallback: string) {
+  const text = await response.text();
+  try {
+    const parsed = JSON.parse(text) as { error?: string; message?: string };
+    return parsed.error || parsed.message || fallback;
+  } catch {
+    return text || fallback;
+  }
+}
 
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
@@ -66,6 +79,16 @@ export default function StudentsPage() {
   const [newStudentProgram, setNewStudentProgram] = React.useState("");
   const [newStudentClassName, setNewStudentClassName] = React.useState("");
   const [newStudentCountry, setNewStudentCountry] = React.useState("");
+  const [newStudentCourseMode, setNewStudentCourseMode] = React.useState<NewStudentCourseMode>("none");
+  const [newStudentCourseIds, setNewStudentCourseIds] = React.useState<string[]>([]);
+  const [newStudentCourseSearch, setNewStudentCourseSearch] = React.useState("");
+  const [newStudentEnrollmentStatus, setNewStudentEnrollmentStatus] = React.useState<EnrollmentStatus>("active");
+  const [newCourseTitle, setNewCourseTitle] = React.useState("");
+  const [newCourseModality, setNewCourseModality] = React.useState<"group" | "1on1">("group");
+  const [newCourseType, setNewCourseType] = React.useState("");
+  const [newCourseStartsAt, setNewCourseStartsAt] = React.useState("");
+  const [newCourseDurationWeeks, setNewCourseDurationWeeks] = React.useState("");
+  const [newCourseSessionsPerWeek, setNewCourseSessionsPerWeek] = React.useState("");
   const [studentSaving, setStudentSaving] = React.useState(false);
   const [studentError, setStudentError] = React.useState<string | null>(null);
   const [openEditStudent, setOpenEditStudent] = React.useState(false);
@@ -148,6 +171,14 @@ export default function StudentsPage() {
       return course.title.toLowerCase().includes(q);
     });
   }, [courses, deferredEnrollCourseSearch]);
+  const deferredNewStudentCourseSearch = React.useDeferredValue(newStudentCourseSearch);
+  const filteredNewStudentCourses = React.useMemo(() => {
+    const q = deferredNewStudentCourseSearch.trim().toLowerCase();
+    return courses.filter((course) => {
+      if (!q) return true;
+      return course.title.toLowerCase().includes(q);
+    });
+  }, [courses, deferredNewStudentCourseSearch]);
   const selectedEnrollStudent = students.find((student) => student.id === enrollStudentId) ?? null;
   const selectedEnrollCourseNames = React.useMemo(
     () =>
@@ -156,15 +187,42 @@ export default function StudentsPage() {
         .filter((title): title is string => Boolean(title)),
     [enrollCourseIds, courses]
   );
+  const newStudentSelectedCourseNames = React.useMemo(
+    () =>
+      newStudentCourseIds
+        .map((courseId) => courses.find((course) => course.id === courseId)?.title)
+        .filter((title): title is string => Boolean(title)),
+    [newStudentCourseIds, courses]
+  );
+  const newStudentEnrollmentSummary =
+    newStudentCourseMode === "new"
+      ? newCourseTitle.trim() || "New course"
+      : newStudentCourseMode === "existing"
+        ? `${newStudentCourseIds.length} selected`
+        : "No course yet";
 
-  const openCreateStudentDialog = () => {
-    setStudentError(null);
+  const resetNewStudentForm = () => {
     setNewStudentName("");
     setNewStudentEmail("");
     setNewStudentPhone("");
     setNewStudentProgram("");
     setNewStudentClassName("");
     setNewStudentCountry("");
+    setNewStudentCourseMode("none");
+    setNewStudentCourseIds([]);
+    setNewStudentCourseSearch("");
+    setNewStudentEnrollmentStatus("active");
+    setNewCourseTitle("");
+    setNewCourseModality("group");
+    setNewCourseType("");
+    setNewCourseStartsAt("");
+    setNewCourseDurationWeeks("");
+    setNewCourseSessionsPerWeek("");
+  };
+
+  const openCreateStudentDialog = () => {
+    setStudentError(null);
+    resetNewStudentForm();
     setOpenStudentModal(true);
   };
 
@@ -281,6 +339,110 @@ export default function StudentsPage() {
       setEnrollError(err instanceof Error ? err.message : "Failed to update enrollments");
     } finally {
       setEnrollSaving(false);
+    }
+  };
+
+  const saveNewStudent = async () => {
+    let createdStudent: Student | null = null;
+
+    try {
+      setStudentSaving(true);
+      setStudentError(null);
+
+      if (newStudentCourseMode === "new" && !newCourseTitle.trim()) {
+        setStudentError("Add a course title or choose an existing course.");
+        return;
+      }
+
+      const durationWeeks = newCourseDurationWeeks.trim()
+        ? Number(newCourseDurationWeeks)
+        : null;
+      const sessionsPerWeek = newCourseSessionsPerWeek.trim()
+        ? Number(newCourseSessionsPerWeek)
+        : null;
+      if (durationWeeks !== null && (!Number.isFinite(durationWeeks) || durationWeeks < 1)) {
+        setStudentError("Course duration must be at least 1 week.");
+        return;
+      }
+      if (sessionsPerWeek !== null && (!Number.isFinite(sessionsPerWeek) || sessionsPerWeek < 1)) {
+        setStudentError("Sessions per week must be at least 1.");
+        return;
+      }
+
+      const studentRes = await fetch("/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newStudentName.trim(),
+          email: newStudentEmail.trim(),
+          phone: newStudentPhone.trim(),
+          country: newStudentCountry.trim() || undefined,
+          program: newStudentProgram.trim() || undefined,
+          class_name: newStudentClassName.trim() || undefined,
+        }),
+      });
+      if (!studentRes.ok) {
+        throw new Error(await readResponseError(studentRes, "Failed to create student"));
+      }
+      createdStudent = (await studentRes.json()) as Student;
+
+      let courseIdsToEnroll = newStudentCourseMode === "existing" ? [...newStudentCourseIds] : [];
+      if (newStudentCourseMode === "new") {
+        const courseRes = await fetch("/api/courses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: newCourseTitle.trim(),
+            modality: newCourseModality,
+            course_type: newCourseType.trim() || null,
+            duration_weeks: durationWeeks,
+            sessions_per_week: sessionsPerWeek,
+            starts_at: newCourseStartsAt ? new Date(newCourseStartsAt).toISOString() : null,
+          }),
+        });
+        if (!courseRes.ok) {
+          throw new Error(await readResponseError(courseRes, "Student created, but course creation failed"));
+        }
+        const createdCourse = (await courseRes.json()) as Course;
+        courseIdsToEnroll = [createdCourse.id];
+      }
+
+      courseIdsToEnroll = Array.from(new Set(courseIdsToEnroll));
+      if (courseIdsToEnroll.length) {
+        const enrollmentRes = await fetch("/api/enrollments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            courseIdsToEnroll.map((course_id) => ({
+              student_id: createdStudent!.id,
+              course_id,
+              status: newStudentEnrollmentStatus,
+            }))
+          ),
+        });
+        if (!enrollmentRes.ok) {
+          throw new Error(await readResponseError(enrollmentRes, "Student created, but enrollment failed"));
+        }
+      }
+
+      const [sRes, cRes, eRes, ssRes] = await Promise.all([
+        fetch("/api/students", { cache: "no-store" }),
+        fetch("/api/courses", { cache: "no-store" }),
+        fetch("/api/enrollments", { cache: "no-store" }),
+        fetch("/api/sessions", { cache: "no-store" }),
+      ]);
+      if (sRes.ok) setStudents((await sRes.json()) as Student[]);
+      if (cRes.ok) setCourses((await cRes.json()) as Course[]);
+      if (eRes.ok) setEnrollments((await eRes.json()) as Enrollment[]);
+      if (ssRes.ok) setSessions((await ssRes.json()) as Session[]);
+
+      resetNewStudentForm();
+      setOpenStudentModal(false);
+    } catch (err) {
+      const prefix = createdStudent ? "Student was created, but setup could not finish: " : "";
+      setStudentError(prefix + (err instanceof Error ? err.message : "Failed to create student"));
+    } finally {
+      setStudentSaving(false);
     }
   };
 
@@ -526,7 +688,7 @@ export default function StudentsPage() {
         stats={[
           { label: "Primary contact", value: newStudentEmail.trim() || "Awaiting email", hint: "Main communication channel" },
           { label: "Program", value: newStudentProgram.trim() || "Not set", hint: "Optional learning track" },
-          { label: "Region", value: newStudentCountry.trim() || "Not set", hint: "Useful for scheduling and support" },
+          { label: "Enrollment", value: newStudentEnrollmentSummary, hint: "Optional course assignment" },
         ]}
         footer={
           <div className="flex w-full items-center justify-end gap-2">
@@ -538,40 +700,10 @@ export default function StudentsPage() {
                 studentSaving ||
                 !newStudentName.trim() ||
                 !newStudentEmail.trim() ||
-                !newStudentPhone.trim()
+                !newStudentPhone.trim() ||
+                (newStudentCourseMode === "new" && !newCourseTitle.trim())
               }
-              onClick={async () => {
-                try {
-                  setStudentSaving(true);
-                  setStudentError(null);
-                  const res = await fetch("/api/students", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      name: newStudentName.trim(),
-                      email: newStudentEmail.trim(),
-                      phone: newStudentPhone.trim(),
-                      country: newStudentCountry.trim() || undefined,
-                      program: newStudentProgram.trim() || undefined,
-                      class_name: newStudentClassName.trim() || undefined,
-                    }),
-                  });
-                  if (!res.ok) throw new Error(await res.text());
-                  setNewStudentName("");
-                  setNewStudentEmail("");
-                  setNewStudentPhone("");
-                  setNewStudentProgram("");
-                  setNewStudentClassName("");
-                  setNewStudentCountry("");
-                  setOpenStudentModal(false);
-                  const sRes = await fetch("/api/students", { cache: "no-store" });
-                  if (sRes.ok) setStudents((await sRes.json()) as Student[]);
-                } catch (err) {
-                  setStudentError(err instanceof Error ? err.message : "Failed to create student");
-                } finally {
-                  setStudentSaving(false);
-                }
-              }}
+              onClick={saveNewStudent}
             >
               {studentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Student"}
             </Button>
@@ -666,6 +798,191 @@ export default function StudentsPage() {
                 </div>
               </div>
             </CreationSection>
+
+            <CreationSection
+              eyebrow="Enrollment"
+              title="Course assignment"
+              description="Enroll this student now, or create a new course and attach it as part of onboarding."
+              badge={newStudentEnrollmentSummary}
+            >
+              <div className="grid gap-2 sm:grid-cols-3">
+                {([
+                  ["none", "No course"],
+                  ["existing", "Existing"],
+                  ["new", "New course"],
+                ] as const).map(([mode, label]) => {
+                  const selected = newStudentCourseMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setStudentError(null);
+                        setNewStudentCourseMode(mode);
+                      }}
+                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                        selected
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {newStudentCourseMode !== "none" && (
+                <div className="mt-4">
+                  <Label>Status</Label>
+                  <Select
+                    value={newStudentEnrollmentStatus}
+                    onValueChange={(value: EnrollmentStatus) => setNewStudentEnrollmentStatus(value)}
+                  >
+                    <SelectTrigger className="mt-2 h-11 w-full bg-white">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="dropped">Dropped</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {newStudentCourseMode === "existing" && (
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <Label htmlFor="new-student-course-search">Search courses</Label>
+                    <Input
+                      id="new-student-course-search"
+                      value={newStudentCourseSearch}
+                      onChange={(event) => setNewStudentCourseSearch(event.target.value)}
+                      placeholder="Search course title"
+                      className="mt-2 h-11 bg-white"
+                    />
+                  </div>
+                  <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                    {filteredNewStudentCourses.length ? (
+                      filteredNewStudentCourses.map((course) => {
+                        const selected = newStudentCourseIds.includes(course.id);
+                        return (
+                          <button
+                            key={course.id}
+                            type="button"
+                            onClick={() =>
+                              setNewStudentCourseIds((current) =>
+                                selected
+                                  ? current.filter((courseId) => courseId !== course.id)
+                                  : [...current, course.id]
+                              )
+                            }
+                            className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left transition ${
+                              selected
+                                ? "border-emerald-300 bg-emerald-50"
+                                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-900">{course.title}</p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {course.modality === "group" ? "Group course" : "1-on-1 course"}
+                              </p>
+                            </div>
+                            <CreationChip
+                              accent={selected ? "emerald" : "primary"}
+                              className={!selected ? "border-slate-200 bg-slate-100 text-slate-600" : ""}
+                            >
+                              {selected ? "Selected" : "Available"}
+                            </CreationChip>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                        No courses match that search.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {newStudentCourseMode === "new" && (
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="new-course-title">Course title</Label>
+                    <Input
+                      id="new-course-title"
+                      value={newCourseTitle}
+                      onChange={(event) => setNewCourseTitle(event.target.value)}
+                      placeholder="Amazon/Walmart Interview Prep"
+                      className="mt-2 h-11 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <Label>Format</Label>
+                    <Select
+                      value={newCourseModality}
+                      onValueChange={(value: "group" | "1on1") => setNewCourseModality(value)}
+                    >
+                      <SelectTrigger className="mt-2 h-11 w-full bg-white">
+                        <SelectValue placeholder="Format" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="group">Group</SelectItem>
+                        <SelectItem value="1on1">1-on-1</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="new-course-type">Course type</Label>
+                    <Input
+                      id="new-course-type"
+                      value={newCourseType}
+                      onChange={(event) => setNewCourseType(event.target.value)}
+                      placeholder="Training"
+                      className="mt-2 h-11 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="new-course-starts">First session</Label>
+                    <Input
+                      id="new-course-starts"
+                      type="datetime-local"
+                      value={newCourseStartsAt}
+                      onChange={(event) => setNewCourseStartsAt(event.target.value)}
+                      className="mt-2 h-11 bg-white"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="new-course-duration">Weeks</Label>
+                      <Input
+                        id="new-course-duration"
+                        type="number"
+                        min={1}
+                        value={newCourseDurationWeeks}
+                        onChange={(event) => setNewCourseDurationWeeks(event.target.value)}
+                        className="mt-2 h-11 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="new-course-sessions">Per week</Label>
+                      <Input
+                        id="new-course-sessions"
+                        type="number"
+                        min={1}
+                        value={newCourseSessionsPerWeek}
+                        onChange={(event) => setNewCourseSessionsPerWeek(event.target.value)}
+                        className="mt-2 h-11 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CreationSection>
           </div>
 
           <CreationSection
@@ -691,6 +1008,16 @@ export default function StudentsPage() {
                 {newStudentProgram.trim() ? <CreationChip accent="emerald">{newStudentProgram.trim()}</CreationChip> : null}
                 {newStudentClassName.trim() ? <CreationChip accent="primary">{newStudentClassName.trim()}</CreationChip> : null}
                 {newStudentCountry.trim() ? <CreationChip accent="amber">{newStudentCountry.trim()}</CreationChip> : null}
+                {newStudentCourseMode === "new" && newCourseTitle.trim() ? (
+                  <CreationChip accent="emerald">{newCourseTitle.trim()}</CreationChip>
+                ) : null}
+                {newStudentCourseMode === "existing"
+                  ? newStudentSelectedCourseNames.map((courseName) => (
+                      <CreationChip key={courseName} accent="emerald">
+                        {courseName}
+                      </CreationChip>
+                    ))
+                  : null}
                 {!newStudentProgram.trim() && !newStudentClassName.trim() && !newStudentCountry.trim() ? (
                   <p className="text-xs text-slate-500">Add profile context to make this student easier to sort later.</p>
                 ) : null}
@@ -699,6 +1026,16 @@ export default function StudentsPage() {
                 <p>Phone: {newStudentPhone.trim() || "Not added yet"}</p>
                 <p>Program: {newStudentProgram.trim() || "Not assigned"}</p>
                 <p>Cohort: {newStudentClassName.trim() || "Not assigned"}</p>
+                <p>
+                  Enrollment:{" "}
+                  {newStudentCourseMode === "none"
+                    ? "Not assigned"
+                    : newStudentCourseMode === "new"
+                      ? newCourseTitle.trim() || "New course title needed"
+                      : newStudentSelectedCourseNames.length
+                        ? newStudentSelectedCourseNames.join(", ")
+                        : "No existing courses selected"}
+                </p>
               </div>
             </div>
           </CreationSection>
