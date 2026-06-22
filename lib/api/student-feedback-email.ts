@@ -316,3 +316,91 @@ export async function sendAttendanceFeedbackRequest({
 
   return { sent: true, requestId: requestRow.id };
 }
+
+export async function resendAttendanceFeedbackRequest(
+  requestId: string,
+  orgId: string
+): Promise<AttendanceFeedbackEmailStatus> {
+  const service = getServiceClient();
+
+  const { data: requestRow, error: requestFetchError } = await service
+    .from("student_feedback_requests")
+    .select("id, attendance_id, student_id, session_id, sent_to, sent_at, submitted_at, expires_at")
+    .eq("org_id", orgId)
+    .eq("id", requestId)
+    .single();
+
+  if (requestFetchError) throw requestFetchError;
+  if (!requestRow) {
+    throw new ApiError("Feedback request not found", 404, "FEEDBACK_REQUEST_NOT_FOUND");
+  }
+  if (requestRow.submitted_at) {
+    return { sent: false, skipped: true, reason: "feedback_already_submitted", requestId };
+  }
+
+  const [studentResult, sessionResult, orgResult] = await Promise.all([
+    service
+      .from("students")
+      .select("id, name, email")
+      .eq("org_id", orgId)
+      .eq("id", requestRow.student_id)
+      .maybeSingle<{
+        id: string;
+        name?: string | null;
+        email?: string | null;
+      }>(),
+    service
+      .from("sessions")
+      .select("id, title, starts_at")
+      .eq("org_id", orgId)
+      .eq("id", requestRow.session_id)
+      .maybeSingle<{
+        id: string;
+        title?: string | null;
+        starts_at?: string | null;
+      }>(),
+    service
+      .from("organizations")
+      .select("id, name")
+      .eq("id", orgId)
+      .maybeSingle<{
+        id: string;
+        name?: string | null;
+      }>(),
+  ]);
+
+  if (studentResult.error) throw studentResult.error;
+  if (sessionResult.error) throw sessionResult.error;
+  if (orgResult.error) throw orgResult.error;
+
+  const student = studentResult.data;
+  if (!student?.email) {
+    return { sent: false, skipped: true, reason: "student_email_missing" };
+  }
+
+  const token = randomBytes(32).toString("base64url");
+  const tokenHash = hashFeedbackToken(token);
+  const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  const emailUrl = `${getAppBaseUrl()}/feedback/${token}`;
+  const composed = buildEmail({
+    studentName: student.name,
+    organizationName: orgResult.data?.name,
+    sessionTitle: sessionResult.data?.title,
+    sessionDate: formatSessionDate(sessionResult.data?.starts_at),
+    feedbackUrl: emailUrl,
+  });
+
+  await sendWithResend({
+    ...composed,
+    to: student.email.trim().toLowerCase(),
+  });
+
+  const { error: updateError } = await service
+    .from("student_feedback_requests")
+    .update({ token_hash: tokenHash, expires_at: expiresAt, sent_at: new Date().toISOString() })
+    .eq("id", requestRow.id);
+  if (updateError) throw updateError;
+
+  return { sent: true, requestId: requestRow.id };
+}

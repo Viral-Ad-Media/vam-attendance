@@ -161,13 +161,32 @@ When `sendPasswordSetup` is enabled, teacher create/update now generates a recov
 - `PATCH /api/enrollments/:id`
 - `DELETE /api/enrollments/:id`
 
+**Invites & Membership (Org Onboarding)**
+- `GET /api/invites` List pending and accepted organization invitations.
+- `POST /api/invites` Create and send new invitation emails (requires `email`, `role`).
+- `POST /api/invite/validate` Validate invitation token (returns invite details or error).
+- `POST /api/invite/accept` Accept invitation and create org membership.
+- `GET /api/memberships` List current org members with roles and timestamps.
+
+**Feedback Requests**
+- `GET /api/student-feedback-requests` List feedback requests for org with status filtering.
+- `PATCH /api/student-feedback-requests/:id` Resend feedback request email (action: `resend`).
+- `DELETE /api/student-feedback-requests/:id` Delete feedback request.
+
+**Audit Logs**
+- `GET /api/audit` Fetch organization audit trail with filtering by `action`, `entity`, and `actor_id`.
+
 **Billing (Stripe)**
 - `POST /api/billing/checkout` Create a Stripe Checkout session.
 - `POST /api/billing/portal` Create a Stripe Billing Portal session.
 - `POST /api/billing/webhook` Stripe webhook handler (Node runtime).
 
-**UI Routes**
-**Public**
+**Admin dashboard**
+- `/dashboard/audit` Audit logs with filtering by action and entity
+- `/dashboard/feedback-requests` Manage student feedback request workflows (resend, delete)
+- `/dashboard/invites` Send and manage organization invitations
+- `/dashboard/reports` Analytics and attendance reports
+- `/dashboard/import-export` Bulk export to CSV and import templates
 - `/` Landing page
 - `/features`, `/pricing`, `/about`, `/contact`, `/privacy`, `/terms`
 - `/login`, `/signup`
@@ -200,8 +219,9 @@ When `sendPasswordSetup` is enabled, teacher create/update now generates a recov
 
 **Known Gaps**
 - `/dashboard/profile` and `/dashboard/settings` are UI-only and do not persist data yet.
-- Invite workflows (`invites` table) are not wired to UI.
+- Invite workflows now have a full UI. Acceptance creates membership and requires authentication.
 - API rate limiting is in-memory and not suitable for multi-instance production without a shared store.
+- Import functionality (file parsing) is ready but endpoint integration is pending.
 
 **Scripts**
 - `npm run dev` Start dev server

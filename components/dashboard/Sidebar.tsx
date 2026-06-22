@@ -11,6 +11,7 @@ import {
   Users,
   GraduationCap,
   Settings,
+  CreditCard,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -93,7 +94,19 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
         { href: "/dashboard/feedback", label: "Feedback" },
       ],
     },
-
+    { key: "billing", href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+    {
+      key: "admin",
+      label: "Admin",
+      icon: Settings,
+      children: [
+        { href: "/dashboard/audit", label: "Audit logs" },
+        { href: "/dashboard/feedback-requests", label: "Feedback requests" },
+        { href: "/dashboard/invites", label: "Invites" },
+        { href: "/dashboard/reports", label: "Reports" },
+        { href: "/dashboard/import-export", label: "Import/Export" },
+      ],
+    },
     { key: "settings", href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
 
