@@ -22,6 +22,7 @@ const teacherAllowedRoutes = [
   "/dashboard/students",
   "/dashboard/courses",
   "/dashboard/enrollments",
+  "/dashboard/feedback",
   "/dashboard/profile",
   "/dashboard/settings",
 ];

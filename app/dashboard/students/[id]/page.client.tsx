@@ -96,6 +96,7 @@ type StudentFeedback = {
   category: FeedbackCategory;
   sentiment: FeedbackSentiment;
   visibility?: "internal" | "shareable";
+  source?: "internal" | "student";
   title: string;
   body: string;
   reviewed_at?: string | null;
@@ -535,6 +536,11 @@ export default function StudentProfilePageClient() {
                               {feedbackSentimentLabels[review.sentiment]}
                             </Badge>
                             <Badge variant="outline">{feedbackCategoryLabels[review.category]}</Badge>
+                            {review.source === "student" && (
+                              <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                                Student submitted
+                              </Badge>
+                            )}
                           </div>
                           <p className="mt-2 text-sm leading-6 text-slate-700">{review.body}</p>
                           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">

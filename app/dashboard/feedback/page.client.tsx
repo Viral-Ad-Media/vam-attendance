@@ -53,6 +53,7 @@ type StudentFeedback = {
   category: FeedbackCategory;
   sentiment: FeedbackSentiment;
   visibility: FeedbackVisibility;
+  source?: "internal" | "student";
   title: string;
   body: string;
   reviewed_at?: string | null;
@@ -548,6 +549,11 @@ export default function FeedbackPageClient() {
                                 <Badge variant="outline" className="capitalize">
                                   {item.visibility}
                                 </Badge>
+                                {item.source === "student" && (
+                                  <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                                    Student submitted
+                                  </Badge>
+                                )}
                               </div>
                             </td>
                             <td className="py-3 pr-0">

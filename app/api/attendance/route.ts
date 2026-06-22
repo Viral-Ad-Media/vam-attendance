@@ -4,6 +4,7 @@ import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
+import { sendAttendanceFeedbackRequest } from "@/lib/api/student-feedback-email";
 
 const attendanceSchema = z.object({
   session_id: z.string().uuid(),
@@ -11,6 +12,25 @@ const attendanceSchema = z.object({
   status: z.enum(["present", "absent", "late"]),
   notes: z.string().optional(),
 });
+
+async function trySendFeedbackEmail(attendance: {
+  id: string;
+  org_id?: string | null;
+  session_id: string;
+  student_id: string;
+  status: "present" | "absent" | "late";
+}, orgId: string) {
+  try {
+    return await sendAttendanceFeedbackRequest({ attendance, orgId });
+  } catch (error) {
+    console.error("[attendance-feedback-email] Failed to send feedback link", error);
+    return {
+      sent: false,
+      reason: "send_failed",
+      message: error instanceof Error ? error.message : "Failed to send feedback email",
+    };
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,7 +83,8 @@ export async function POST(request: Request) {
       student_id: data.student_id,
       status: data.status,
     });
-    return NextResponse.json(data, { status: 201 });
+    const feedbackEmail = await trySendFeedbackEmail(data, orgId);
+    return NextResponse.json({ ...data, feedback_email: feedbackEmail }, { status: 201 });
   } catch (error) {
     return respondWithError(error, { action: "create-attendance" });
   }
