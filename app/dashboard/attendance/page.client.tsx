@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Textarea from "@/components/ui/textarea";
 import { Loader, Pencil, Trash2 } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { getAttendanceStatusColor } from "@/lib/helpers";
@@ -38,6 +40,9 @@ import {
 // Type definitions
 type TabKey = "overview" | "teachers" | "students" | "sessions";
 type Status = "present" | "absent" | "late";
+type FeedbackCategory = "general" | "progress" | "participation" | "behavior" | "homework" | "assessment";
+type FeedbackSentiment = "positive" | "neutral" | "needs_attention";
+type ReviewRating = "none" | "1" | "2" | "3" | "4" | "5";
 
 interface Teacher {
   id: string;
@@ -61,6 +66,7 @@ interface Student {
 interface Session {
   id: string;
   teacher_id: string;
+  course_id?: string | null;
   title: string;
   starts_at: string;
   description?: string;
@@ -72,8 +78,25 @@ interface Attendance {
   session_id: string;
   student_id: string;
   status: Status;
+  notes?: string | null;
+  noted_at?: string | null;
   created_at: string;
 }
+
+const feedbackCategoryOptions: Array<{ value: FeedbackCategory; label: string }> = [
+  { value: "general", label: "General" },
+  { value: "progress", label: "Progress" },
+  { value: "participation", label: "Participation" },
+  { value: "behavior", label: "Behavior" },
+  { value: "homework", label: "Homework" },
+  { value: "assessment", label: "Assessment" },
+];
+
+const feedbackSentimentOptions: Array<{ value: FeedbackSentiment; label: string }> = [
+  { value: "positive", label: "Positive" },
+  { value: "neutral", label: "Neutral" },
+  { value: "needs_attention", label: "Needs attention" },
+];
 
 // Utility functions
 const toLocalDT = (iso: string) => {
@@ -114,7 +137,7 @@ function Modal({
     >
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       <div
-        className={`relative ${maxWidth} w-full rounded-lg border bg-white p-4 shadow-xl`}
+        className={`relative max-h-[90vh] ${maxWidth} w-full overflow-y-auto rounded-lg border bg-white p-4 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -210,6 +233,124 @@ const renderStatusBadge = (status: Status, size: "sm" | "xs" = "sm") => {
   );
 };
 
+function TeacherReviewFields({
+  idPrefix,
+  enabled,
+  onEnabledChange,
+  title,
+  onTitleChange,
+  body,
+  onBodyChange,
+  rating,
+  onRatingChange,
+  category,
+  onCategoryChange,
+  sentiment,
+  onSentimentChange,
+}: {
+  idPrefix: string;
+  enabled: boolean;
+  onEnabledChange: (checked: boolean) => void;
+  title: string;
+  onTitleChange: (value: string) => void;
+  body: string;
+  onBodyChange: (value: string) => void;
+  rating: ReviewRating;
+  onRatingChange: (value: ReviewRating) => void;
+  category: FeedbackCategory;
+  onCategoryChange: (value: FeedbackCategory) => void;
+  sentiment: FeedbackSentiment;
+  onSentimentChange: (value: FeedbackSentiment) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+      <label className="flex items-center gap-2">
+        <Checkbox
+          id={`${idPrefix}-review-enabled`}
+          checked={enabled}
+          onCheckedChange={onEnabledChange}
+        />
+        <span className="text-sm font-semibold text-slate-800">
+          Add student review
+        </span>
+      </label>
+
+      {enabled && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <Label htmlFor={`${idPrefix}-review-rating`}>Rating</Label>
+              <Select value={rating} onValueChange={onRatingChange}>
+                <SelectTrigger id={`${idPrefix}-review-rating`} className="mt-2 h-9 w-full bg-white">
+                  <SelectValue placeholder="Rating" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No rating</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="1">1</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor={`${idPrefix}-review-category`}>Category</Label>
+              <Select value={category} onValueChange={onCategoryChange}>
+                <SelectTrigger id={`${idPrefix}-review-category`} className="mt-2 h-9 w-full bg-white">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {feedbackCategoryOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor={`${idPrefix}-review-sentiment`}>Sentiment</Label>
+              <Select value={sentiment} onValueChange={onSentimentChange}>
+                <SelectTrigger id={`${idPrefix}-review-sentiment`} className="mt-2 h-9 w-full bg-white">
+                  <SelectValue placeholder="Sentiment" />
+                </SelectTrigger>
+                <SelectContent>
+                  {feedbackSentimentOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor={`${idPrefix}-review-title`}>Review title</Label>
+            <Input
+              id={`${idPrefix}-review-title`}
+              value={title}
+              onChange={(event) => onTitleChange(event.target.value)}
+              placeholder="Session review"
+              className="mt-2 h-9 bg-white"
+            />
+          </div>
+          <div>
+            <Label htmlFor={`${idPrefix}-review-body`}>Review</Label>
+            <Textarea
+              id={`${idPrefix}-review-body`}
+              value={body}
+              onChange={(event) => onBodyChange(event.target.value)}
+              placeholder="Write the student's session review..."
+              className="mt-2 min-h-[120px] bg-white"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* Main Page Component */
 function AttendancePage() {
   const [tab] = React.useState<TabKey>("sessions");
@@ -244,8 +385,19 @@ function AttendancePage() {
   const [attendSessionId, setAttendSessionId] = React.useState("");
   const [attendStudentId, setAttendStudentId] = React.useState("");
   const [attendStatus, setAttendStatus] = React.useState<Status>("present");
+  const [attendNotes, setAttendNotes] = React.useState("");
+  const [attendReviewEnabled, setAttendReviewEnabled] = React.useState(false);
+  const [attendReviewTitle, setAttendReviewTitle] = React.useState("");
+  const [attendReviewBody, setAttendReviewBody] = React.useState("");
+  const [attendReviewRating, setAttendReviewRating] = React.useState<ReviewRating>("none");
+  const [attendReviewCategory, setAttendReviewCategory] = React.useState<FeedbackCategory>("general");
+  const [attendReviewSentiment, setAttendReviewSentiment] = React.useState<FeedbackSentiment>("neutral");
   const [attendanceSaving, setAttendanceSaving] = React.useState(false);
   const [attendanceError, setAttendanceError] = React.useState<string | null>(null);
+  const [attendanceNotice, setAttendanceNotice] = React.useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // EDIT Teacher modal
   const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
@@ -277,6 +429,16 @@ function AttendancePage() {
   const [editAttendStudentId, setEditAttendStudentId] = React.useState<string>("");
   const [editAttendStatus, setEditAttendStatus] =
     React.useState<Status>("present");
+  const [editAttendNotes, setEditAttendNotes] = React.useState("");
+  const [editAttendReviewEnabled, setEditAttendReviewEnabled] = React.useState(false);
+  const [editAttendReviewTitle, setEditAttendReviewTitle] = React.useState("");
+  const [editAttendReviewBody, setEditAttendReviewBody] = React.useState("");
+  const [editAttendReviewRating, setEditAttendReviewRating] = React.useState<ReviewRating>("none");
+  const [editAttendReviewCategory, setEditAttendReviewCategory] = React.useState<FeedbackCategory>("general");
+  const [editAttendReviewSentiment, setEditAttendReviewSentiment] =
+    React.useState<FeedbackSentiment>("neutral");
+  const [editAttendanceSaving, setEditAttendanceSaving] = React.useState(false);
+  const [editAttendanceError, setEditAttendanceError] = React.useState<string | null>(null);
   const [editAttendKey, setEditAttendKey] = React.useState<{
     id: string;
     session_id: string;
@@ -455,7 +617,18 @@ function AttendancePage() {
 
   const canSaveSession = Boolean(sessTeacherId && sessStartsAt && !sessionSaving);
   const canSaveAttendance = Boolean(
-    attendSessionId && attendStudentId && attendStatus && !attendanceSaving
+    attendSessionId &&
+      attendStudentId &&
+      attendStatus &&
+      !attendanceSaving &&
+      (!attendReviewEnabled || attendReviewBody.trim())
+  );
+  const canSaveEditAttendance = Boolean(
+    editAttendSessionId &&
+      editAttendStudentId &&
+      editAttendStatus &&
+      !editAttendanceSaving &&
+      (!editAttendReviewEnabled || editAttendReviewBody.trim())
   );
 
   const [calendarMonth, setCalendarMonth] = React.useState(() => {
@@ -532,10 +705,90 @@ function AttendancePage() {
     }
   };
 
+  const resetAddAttendanceForm = () => {
+    setAttendSessionId("");
+    setAttendStudentId("");
+    setAttendStatus("present");
+    setAttendNotes("");
+    setAttendReviewEnabled(false);
+    setAttendReviewTitle("");
+    setAttendReviewBody("");
+    setAttendReviewRating("none");
+    setAttendReviewCategory("general");
+    setAttendReviewSentiment("neutral");
+  };
+
+  const resetEditAttendanceForm = () => {
+    setEditAttendKey(null);
+    setEditAttendSessionId("");
+    setEditAttendStudentId("");
+    setEditAttendStatus("present");
+    setEditAttendNotes("");
+    setEditAttendReviewEnabled(false);
+    setEditAttendReviewTitle("");
+    setEditAttendReviewBody("");
+    setEditAttendReviewRating("none");
+    setEditAttendReviewCategory("general");
+    setEditAttendReviewSentiment("neutral");
+    setEditAttendanceError(null);
+  };
+
+  const saveTeacherReview = async ({
+    attendanceId,
+    sessionId,
+    studentId,
+    title,
+    body,
+    rating,
+    category,
+    sentiment,
+  }: {
+    attendanceId: string;
+    sessionId: string;
+    studentId: string;
+    title: string;
+    body: string;
+    rating: ReviewRating;
+    category: FeedbackCategory;
+    sentiment: FeedbackSentiment;
+  }) => {
+    const reviewBody = body.trim();
+    if (!reviewBody) return;
+
+    const selectedSession = sessions.find((s) => s.id === sessionId);
+    const selectedStudent = students.find((s) => s.id === studentId);
+    const reviewTitle =
+      title.trim() || `Session review for ${selectedStudent?.name ?? "student"}`;
+
+    const res = await fetch("/api/student-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        attendance_id: attendanceId,
+        student_id: studentId,
+        teacher_id: selectedSession?.teacher_id || null,
+        course_id: selectedSession?.course_id || null,
+        session_id: sessionId,
+        rating: rating === "none" ? null : Number(rating),
+        category,
+        sentiment,
+        visibility: "internal",
+        title: reviewTitle,
+        body: reviewBody,
+        reviewed_at: new Date().toISOString(),
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(await readResponseError(res, "Failed to save teacher review"));
+    }
+  };
+
   const addAttendance = async () => {
     if (!attendSessionId || !attendStudentId) return;
     setAttendanceSaving(true);
     setAttendanceError(null);
+    setAttendanceNotice(null);
     try {
       const res = await fetch("/api/attendance", {
         method: "POST",
@@ -544,25 +797,48 @@ function AttendancePage() {
           session_id: attendSessionId,
           student_id: attendStudentId,
           status: attendStatus,
+          notes: attendNotes.trim() || undefined,
         }),
       });
       if (!res.ok) {
-        const text = await res.text();
-        let message = "Failed to record attendance";
-        try {
-          const parsed = JSON.parse(text);
-          message = parsed.error || parsed.message || message;
-        } catch {
-          if (text) message = text;
-        }
-        setAttendanceError(message);
+        setAttendanceError(await readResponseError(res, "Failed to record attendance"));
         return;
       }
-      setAttendSessionId("");
-      setAttendStudentId("");
-      setAttendStatus("present");
+
+      const createdAttendance = (await res.json()) as Attendance;
+      const shouldSaveReview = attendReviewEnabled && Boolean(attendReviewBody.trim());
+      let reviewError: string | null = null;
+      if (shouldSaveReview) {
+        try {
+          await saveTeacherReview({
+            attendanceId: createdAttendance.id,
+            sessionId: attendSessionId,
+            studentId: attendStudentId,
+            title: attendReviewTitle,
+            body: attendReviewBody,
+            rating: attendReviewRating,
+            category: attendReviewCategory,
+            sentiment: attendReviewSentiment,
+          });
+        } catch (reviewSaveError) {
+          reviewError =
+            reviewSaveError instanceof Error
+              ? reviewSaveError.message
+              : "Failed to save teacher review";
+        }
+      }
+
+      resetAddAttendanceForm();
       setOpenAttend(false);
       await reload();
+      setAttendanceNotice({
+        tone: reviewError ? "error" : "success",
+        message: reviewError
+          ? `Attendance saved, but teacher review failed: ${reviewError}`
+          : shouldSaveReview
+            ? "Attendance and teacher review saved."
+            : "Attendance saved.",
+      });
     } catch (err) {
       setAttendanceError(
         err instanceof Error ? err.message : "Unexpected error while saving attendance"
@@ -695,6 +971,7 @@ function AttendancePage() {
   };
 
   const onOpenEditAttendance = (a: Attendance) => {
+    setAttendanceNotice(null);
     setEditAttendKey({
       id: a.id,
       session_id: a.session_id,
@@ -703,51 +980,104 @@ function AttendancePage() {
     setEditAttendSessionId(a.session_id);
     setEditAttendStudentId(a.student_id);
     setEditAttendStatus(a.status);
+    setEditAttendNotes(a.notes ?? "");
+    setEditAttendReviewEnabled(false);
+    setEditAttendReviewTitle("");
+    setEditAttendReviewBody("");
+    setEditAttendReviewRating("none");
+    setEditAttendReviewCategory("general");
+    setEditAttendReviewSentiment("neutral");
+    setEditAttendanceError(null);
     setOpenEditAttendance(true);
   };
   const saveEditAttendance = async () => {
     if (!editAttendKey) return;
-    const changedKey =
-      editAttendKey.session_id !== editAttendSessionId ||
-      editAttendKey.student_id !== editAttendStudentId;
-    if (changedKey) {
-      const delRes = await fetch(`/api/attendance/${editAttendKey.id}`, {
-        method: "DELETE",
-      });
-      if (!delRes.ok) {
-        console.error(await delRes.text());
-        return;
+    if (!editAttendSessionId || !editAttendStudentId) return;
+    setEditAttendanceSaving(true);
+    setEditAttendanceError(null);
+    setAttendanceNotice(null);
+    try {
+      const changedKey =
+        editAttendKey.session_id !== editAttendSessionId ||
+        editAttendKey.student_id !== editAttendStudentId;
+      let savedAttendanceId = editAttendKey.id;
+
+      if (changedKey) {
+        const delRes = await fetch(`/api/attendance/${editAttendKey.id}`, {
+          method: "DELETE",
+        });
+        if (!delRes.ok) {
+          throw new Error(await readResponseError(delRes, "Failed to remove old attendance"));
+        }
+        const insRes = await fetch("/api/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: editAttendSessionId,
+            student_id: editAttendStudentId,
+            status: editAttendStatus,
+            notes: editAttendNotes.trim() || undefined,
+          }),
+        });
+        if (!insRes.ok) {
+          throw new Error(await readResponseError(insRes, "Failed to save attendance"));
+        }
+        const createdAttendance = (await insRes.json()) as Attendance;
+        savedAttendanceId = createdAttendance.id;
+      } else {
+        const updRes = await fetch(`/api/attendance/${editAttendKey.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: editAttendStatus,
+            notes: editAttendNotes.trim() || null,
+          }),
+        });
+        if (!updRes.ok) {
+          throw new Error(await readResponseError(updRes, "Failed to update attendance"));
+        }
       }
-      const insRes = await fetch("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id: editAttendSessionId,
-          student_id: editAttendStudentId,
-          status: editAttendStatus,
-        }),
-      });
-      if (!insRes.ok) {
-        console.error(await insRes.text());
-        return;
+
+      const shouldSaveReview = editAttendReviewEnabled && Boolean(editAttendReviewBody.trim());
+      let reviewError: string | null = null;
+      if (shouldSaveReview) {
+        try {
+          await saveTeacherReview({
+            attendanceId: savedAttendanceId,
+            sessionId: editAttendSessionId,
+            studentId: editAttendStudentId,
+            title: editAttendReviewTitle,
+            body: editAttendReviewBody,
+            rating: editAttendReviewRating,
+            category: editAttendReviewCategory,
+            sentiment: editAttendReviewSentiment,
+          });
+        } catch (reviewSaveError) {
+          reviewError =
+            reviewSaveError instanceof Error
+              ? reviewSaveError.message
+              : "Failed to save teacher review";
+        }
       }
-    } else {
-      const updRes = await fetch(`/api/attendance/${editAttendKey.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: editAttendStatus }),
+
+      await reload();
+      setOpenEditAttendance(false);
+      resetEditAttendanceForm();
+      setAttendanceNotice({
+        tone: reviewError ? "error" : "success",
+        message: reviewError
+          ? `Attendance updated, but teacher review failed: ${reviewError}`
+          : shouldSaveReview
+            ? "Attendance and teacher review updated."
+            : "Attendance updated.",
       });
-      if (!updRes.ok) {
-        console.error(await updRes.text());
-        return;
-      }
+    } catch (err) {
+      setEditAttendanceError(
+        err instanceof Error ? err.message : "Unexpected error while updating attendance"
+      );
+    } finally {
+      setEditAttendanceSaving(false);
     }
-    await reload();
-    setOpenEditAttendance(false);
-    setEditAttendKey(null);
-    setEditAttendSessionId("");
-    setEditAttendStudentId("");
-    setEditAttendStatus("present");
   };
 
   /* ------------ DELETE ------------ */
@@ -1124,6 +1454,7 @@ function AttendancePage() {
                   <Button
                     onClick={() => {
                       setAttendanceError(null);
+                      setAttendanceNotice(null);
                       setOpenAttend(true);
                     }}
                   >
@@ -1133,6 +1464,17 @@ function AttendancePage() {
               </div>
             </CardHeader>
             <CardContent className="overflow-x-auto pt-0">
+              {attendanceNotice && (
+                <div
+                  className={`mb-3 rounded-md border px-3 py-2 text-sm ${
+                    attendanceNotice.tone === "success"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {attendanceNotice.message}
+                </div>
+              )}
               {viewMode === "list" && (
                 <div className="space-y-3">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -1227,6 +1569,7 @@ function AttendancePage() {
                         <th className="py-2 pr-3">Session</th>
                         <th className="py-2 pr-3">Student</th>
                         <th className="py-2 pr-3">Status</th>
+                        <th className="py-2 pr-3">Note</th>
                         <th className="py-2 pr-0 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -1257,6 +1600,15 @@ function AttendancePage() {
                             </td>
                             <td className="py-2 pr-3">
                               {renderStatusBadge(a.status)}
+                            </td>
+                            <td className="py-2 pr-3 text-xs text-slate-600">
+                              {a.notes ? (
+                                <div className="max-w-[260px] truncate" title={a.notes}>
+                                  {a.notes}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
                             </td>
                             <td className="py-2 pr-0 text-right">
                               <div className="inline-flex gap-2">
@@ -1292,7 +1644,7 @@ function AttendancePage() {
                         <tr>
                           <td
                             className="py-6 text-center text-slate-500"
-                            colSpan={5}
+                            colSpan={6}
                           >
                             No attendance yet.
                           </td>
@@ -1398,6 +1750,14 @@ function AttendancePage() {
                                   <div className="text-[10px] text-slate-600">
                                     {sess?.title ?? "Session"}
                                   </div>
+                                  {a.notes && (
+                                    <div
+                                      className="mt-1 truncate text-[10px] text-slate-500"
+                                      title={a.notes}
+                                    >
+                                      {a.notes}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -1482,8 +1842,10 @@ function AttendancePage() {
         onClose={() => {
           setOpenAttend(false);
           setAttendanceError(null);
+          resetAddAttendanceForm();
         }}
         title="Add Attendance"
+        maxWidth="max-w-2xl"
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Select
@@ -1529,6 +1891,31 @@ function AttendancePage() {
               <SelectItem value="late">Late</SelectItem>
             </SelectContent>
           </Select>
+          <div className="sm:col-span-2">
+            <Label htmlFor="attendance-note">Attendance note</Label>
+            <Textarea
+              id="attendance-note"
+              value={attendNotes}
+              onChange={(event) => setAttendNotes(event.target.value)}
+              placeholder="Teacher note for this attendance mark..."
+              className="mt-2 min-h-[88px]"
+            />
+          </div>
+          <TeacherReviewFields
+            idPrefix="attendance"
+            enabled={attendReviewEnabled}
+            onEnabledChange={setAttendReviewEnabled}
+            title={attendReviewTitle}
+            onTitleChange={setAttendReviewTitle}
+            body={attendReviewBody}
+            onBodyChange={setAttendReviewBody}
+            rating={attendReviewRating}
+            onRatingChange={setAttendReviewRating}
+            category={attendReviewCategory}
+            onCategoryChange={setAttendReviewCategory}
+            sentiment={attendReviewSentiment}
+            onSentimentChange={setAttendReviewSentiment}
+          />
         </div>
         <div className="mt-3 flex justify-end gap-2">
           <Button
@@ -1536,6 +1923,7 @@ function AttendancePage() {
             onClick={() => {
               setOpenAttend(false);
               setAttendanceError(null);
+              resetAddAttendanceForm();
             }}
           >
             Cancel
@@ -1708,8 +2096,12 @@ function AttendancePage() {
 
       <Modal
         open={openEditAttendance}
-        onClose={() => setOpenEditAttendance(false)}
+        onClose={() => {
+          setOpenEditAttendance(false);
+          resetEditAttendanceForm();
+        }}
         title="Edit Attendance"
+        maxWidth="max-w-2xl"
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Select
@@ -1757,16 +2149,53 @@ function AttendancePage() {
               <SelectItem value="late">Late</SelectItem>
             </SelectContent>
           </Select>
+          <div className="sm:col-span-2">
+            <Label htmlFor="edit-attendance-note">Attendance note</Label>
+            <Textarea
+              id="edit-attendance-note"
+              value={editAttendNotes}
+              onChange={(event) => setEditAttendNotes(event.target.value)}
+              placeholder="Teacher note for this attendance mark..."
+              className="mt-2 min-h-[88px]"
+            />
+          </div>
+          <TeacherReviewFields
+            idPrefix="edit-attendance"
+            enabled={editAttendReviewEnabled}
+            onEnabledChange={setEditAttendReviewEnabled}
+            title={editAttendReviewTitle}
+            onTitleChange={setEditAttendReviewTitle}
+            body={editAttendReviewBody}
+            onBodyChange={setEditAttendReviewBody}
+            rating={editAttendReviewRating}
+            onRatingChange={setEditAttendReviewRating}
+            category={editAttendReviewCategory}
+            onCategoryChange={setEditAttendReviewCategory}
+            sentiment={editAttendReviewSentiment}
+            onSentimentChange={setEditAttendReviewSentiment}
+          />
         </div>
         <div className="mt-3 flex justify-end gap-2">
           <Button
             variant="outline"
-            onClick={() => setOpenEditAttendance(false)}
+            onClick={() => {
+              setOpenEditAttendance(false);
+              resetEditAttendanceForm();
+            }}
+            disabled={editAttendanceSaving}
           >
             Cancel
           </Button>
-          <Button onClick={saveEditAttendance}>Save Changes</Button>
+          <Button onClick={saveEditAttendance} disabled={!canSaveEditAttendance}>
+            {editAttendanceSaving && <Loader className="mr-1 h-4 w-4 animate-spin" />}
+            Save Changes
+          </Button>
         </div>
+        {editAttendanceError && (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {editAttendanceError}
+          </div>
+        )}
       </Modal>
 
       {/* --------- Confirm Modals --------- */}

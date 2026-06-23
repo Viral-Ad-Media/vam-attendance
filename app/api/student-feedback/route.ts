@@ -7,6 +7,7 @@ import { respondWithError } from "@/lib/api/errors";
 
 const feedbackSchema = z.object({
   student_id: z.string().uuid(),
+  attendance_id: z.string().uuid().optional().nullable(),
   teacher_id: z.string().uuid().optional().nullable(),
   course_id: z.string().uuid().optional().nullable(),
   session_id: z.string().uuid().optional().nullable(),
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
 
     if (error) throw error;
     await logAudit(supabase, orgId, session.user.id, "create", "student_feedback", data.id, {
+      attendance_id: data.attendance_id,
       student_id: data.student_id,
       teacher_id: data.teacher_id,
       rating: data.rating,
