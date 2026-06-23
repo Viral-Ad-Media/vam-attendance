@@ -10,8 +10,10 @@ import {
   CheckCircle2,
   Clock,
   GraduationCap,
+  Loader2,
   Mail,
   MessageSquareText,
+  Pencil,
   Phone,
   Star,
   UserRound,
@@ -22,6 +24,22 @@ import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import Textarea from "@/components/ui/textarea";
 
 type AttendanceStatus = "present" | "absent" | "late";
 type EnrollmentStatus = "active" | "paused" | "completed" | "dropped";
@@ -169,6 +187,16 @@ function RatingStars({ rating }: { rating?: number | null }) {
   );
 }
 
+async function readResponseError(response: Response, fallback: string) {
+  const text = await response.text();
+  try {
+    const parsed = JSON.parse(text) as { error?: string; message?: string };
+    return parsed.error || parsed.message || fallback;
+  } catch {
+    return text || fallback;
+  }
+}
+
 function StatTile({
   label,
   value,
@@ -208,6 +236,11 @@ export default function StudentProfilePageClient() {
   const [attendancePageSize, setAttendancePageSize] = React.useState(10);
   const [feedbackPage, setFeedbackPage] = React.useState(1);
   const [feedbackPageSize, setFeedbackPageSize] = React.useState(5);
+  const [editingAttendance, setEditingAttendance] = React.useState<Attendance | null>(null);
+  const [editAttendanceStatus, setEditAttendanceStatus] = React.useState<AttendanceStatus>("present");
+  const [editAttendanceNotes, setEditAttendanceNotes] = React.useState("");
+  const [editAttendanceSaving, setEditAttendanceSaving] = React.useState(false);
+  const [editAttendanceError, setEditAttendanceError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -318,6 +351,59 @@ export default function StudentProfilePageClient() {
   const attendanceRate = attendance.length
     ? Math.round(((presentCount + lateCount) / attendance.length) * 100)
     : 0;
+
+  const openAttendanceEditor = (row: Attendance) => {
+    setEditingAttendance(row);
+    setEditAttendanceStatus(row.status);
+    setEditAttendanceNotes(row.notes ?? "");
+    setEditAttendanceError(null);
+  };
+
+  const closeAttendanceEditor = () => {
+    if (editAttendanceSaving) return;
+    setEditingAttendance(null);
+    setEditAttendanceError(null);
+  };
+
+  const saveAttendanceEdit = async () => {
+    if (!editingAttendance) return;
+    try {
+      setEditAttendanceSaving(true);
+      setEditAttendanceError(null);
+      const response = await fetch(`/api/attendance/${editingAttendance.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: editAttendanceStatus,
+          notes: editAttendanceNotes.trim() || null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readResponseError(response, "Failed to update attendance"));
+      }
+      const updated = (await response.json()) as Attendance;
+      setAttendance((current) =>
+        current.map((row) =>
+          row.id === editingAttendance.id
+            ? {
+                ...row,
+                status: updated.status,
+                notes: updated.notes ?? null,
+                noted_at: updated.noted_at ?? row.noted_at,
+              }
+            : row
+        )
+      );
+      setEditingAttendance(null);
+    } catch (err) {
+      setEditAttendanceError(err instanceof Error ? err.message : "Failed to update attendance");
+    } finally {
+      setEditAttendanceSaving(false);
+    }
+  };
+
+  const editingSession = editingAttendance ? sessionById.get(editingAttendance.session_id) ?? null : null;
+  const editingCourse = editingSession?.course_id ? courseById.get(editingSession.course_id) ?? null : null;
 
   return (
     <div className="space-y-4">
@@ -456,7 +542,8 @@ export default function StudentProfilePageClient() {
                         <th className="py-2 pr-3">Session</th>
                         <th className="py-2 pr-3">Course</th>
                         <th className="py-2 pr-3">Date</th>
-                        <th className="py-2 pr-0 text-right">Status</th>
+                        <th className="py-2 pr-3 text-right">Status</th>
+                        <th className="py-2 pr-0 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -472,10 +559,16 @@ export default function StudentProfilePageClient() {
                                 {formatDateTime(session?.starts_at ?? row.noted_at)}
                               </span>
                             </td>
-                            <td className="py-2 pr-0 text-right">
+                            <td className="py-2 pr-3 text-right">
                               <Badge variant="outline" className={statusClass(row.status)}>
                                 {row.status}
                               </Badge>
+                            </td>
+                            <td className="py-2 pr-0 text-right">
+                              <Button size="sm" variant="outline" onClick={() => openAttendanceEditor(row)}>
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                              </Button>
                             </td>
                           </tr>
                         );
@@ -580,6 +673,68 @@ export default function StudentProfilePageClient() {
           </Card>
         </>
       )}
+
+      <Dialog open={Boolean(editingAttendance)} onOpenChange={(open) => {
+        if (!open) closeAttendanceEditor();
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Attendance</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <p className="font-semibold text-slate-900">{editingSession?.title ?? "Session"}</p>
+              <p className="mt-1">
+                {editingCourse?.title ?? "No course"} - {formatDateTime(editingSession?.starts_at ?? editingAttendance?.noted_at)}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={editAttendanceStatus}
+                onValueChange={(value: AttendanceStatus) => setEditAttendanceStatus(value)}
+              >
+                <SelectTrigger className="w-full bg-white">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">Present</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="attendance-notes">Notes</Label>
+              <Textarea
+                id="attendance-notes"
+                value={editAttendanceNotes}
+                onChange={(event) => setEditAttendanceNotes(event.target.value)}
+                placeholder="Attendance notes"
+              />
+            </div>
+
+            {editAttendanceError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {editAttendanceError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeAttendanceEditor} disabled={editAttendanceSaving}>
+              Cancel
+            </Button>
+            <Button onClick={saveAttendanceEdit} disabled={editAttendanceSaving}>
+              {editAttendanceSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Attendance
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

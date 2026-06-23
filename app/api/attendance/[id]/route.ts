@@ -7,7 +7,7 @@ import { sendAttendanceFeedbackRequest } from "@/lib/api/student-feedback-email"
 
 const updateSchema = z.object({
   status: z.enum(["present", "absent", "late"]).optional(),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
 });
 
 type RouteParamsPromise = { params: Promise<{ id: string }> };

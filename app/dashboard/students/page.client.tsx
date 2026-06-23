@@ -30,13 +30,15 @@ type Student = {
   created_at?: string | null;
 };
 
-type Course = { id: string; title: string; modality: "group" | "1on1" };
+type Course = { id: string; title: string; modality: "group" | "1on1"; lead_teacher_id?: string | null };
 type Session = { id: string; title?: string | null; starts_at: string };
+type Teacher = { id: string; name: string; email?: string | null };
 type EnrollmentStatus = "active" | "paused" | "completed" | "dropped";
 type Enrollment = {
   id: string;
   student_id: string;
   course_id: string;
+  teacher_id?: string | null;
   status: EnrollmentStatus;
   enrolled_at?: string;
 };
@@ -56,9 +58,11 @@ async function readResponseError(response: Response, fallback: string) {
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [courses, setCourses] = React.useState<Course[]>([]);
+  const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [query, setQuery] = React.useState("");
+  const [teacherFilter, setTeacherFilter] = React.useState("all");
   const [studentPage, setStudentPage] = React.useState(1);
   const [studentPageSize, setStudentPageSize] = React.useState(10);
   const [loading, setLoading] = React.useState(true);
@@ -114,24 +118,28 @@ export default function StudentsPage() {
       try {
         setLoading(true);
         setError(null);
-        const [sRes, cRes, eRes, ssRes] = await Promise.all([
+        const [sRes, cRes, eRes, ssRes, tRes] = await Promise.all([
           fetch("/api/students", { cache: "no-store" }),
           fetch("/api/courses", { cache: "no-store" }),
           fetch("/api/enrollments", { cache: "no-store" }),
           fetch("/api/sessions", { cache: "no-store" }),
+          fetch("/api/teachers", { cache: "no-store" }),
         ]);
         if (!sRes.ok) throw new Error(await sRes.text());
         if (!cRes.ok) throw new Error(await cRes.text());
         if (!eRes.ok) throw new Error(await eRes.text());
         if (!ssRes.ok) throw new Error(await ssRes.text());
+        if (!tRes.ok) throw new Error(await tRes.text());
         const sData = (await sRes.json()) as Student[];
         const cData = (await cRes.json()) as Course[];
         const eData = (await eRes.json()) as Enrollment[];
         const ssData = (await ssRes.json()) as Session[];
+        const tData = (await tRes.json()) as Teacher[];
         setStudents(sData);
         setCourses(cData);
         setEnrollments(eData);
         setSessions(ssData);
+        setTeachers(tData);
         if (sData.length) {
           setEnrollStudentId(sData[0].id);
           const existing = eData.filter((e) => e.student_id === sData[0].id).map((e) => e.course_id);
@@ -146,14 +154,24 @@ export default function StudentsPage() {
     load();
   }, []);
 
+  const courseById = React.useMemo(() => new Map(courses.map((course) => [course.id, course])), [courses]);
   const filtered = React.useMemo(
     () =>
-      students.filter((s) =>
-        [s.name, s.email, s.phone, s.country]
+      students.filter((s) => {
+        const normalizedQuery = query.toLowerCase();
+        const matchesQuery = [s.name, s.email, s.phone, s.country]
           .filter(Boolean)
-          .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
-      ),
-    [students, query]
+          .some((field) => field!.toLowerCase().includes(normalizedQuery));
+        const matchesTeacher =
+          teacherFilter === "all" ||
+          enrollments.some((enrollment) => {
+            if (enrollment.student_id !== s.id) return false;
+            const course = courseById.get(enrollment.course_id);
+            return enrollment.teacher_id === teacherFilter || course?.lead_teacher_id === teacherFilter;
+          });
+        return matchesQuery && matchesTeacher;
+      }),
+    [courseById, enrollments, query, students, teacherFilter]
   );
   const studentTotalPages = Math.max(1, Math.ceil(filtered.length / studentPageSize));
   React.useEffect(() => {
@@ -497,6 +515,27 @@ export default function StudentsPage() {
                 <p className="text-xs text-slate-500">Manage and enroll students into courses</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <div className="w-[220px]">
+                  <Select
+                    value={teacherFilter}
+                    onValueChange={(value) => {
+                      setTeacherFilter(value);
+                      setStudentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All teachers</SelectItem>
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="w-[200px]">
                   <Select value={viewMode} onValueChange={(v: "grid" | "list") => setViewMode(v)}>
                     <SelectTrigger className="h-9 w-full">

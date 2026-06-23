@@ -13,10 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Loader, Mail, RotateCcw, Trash2, Send } from "lucide-react";
+import { AlertCircle, Loader, Mail, RotateCcw, Trash2 } from "lucide-react";
 
 type FeedbackRequest = {
   id: string;
@@ -132,7 +130,6 @@ export default function FeedbackRequestsPageClient() {
   }, [requests, statusFilter]);
 
   const paginatedRequests = filteredRequests.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.ceil(filteredRequests.length / pageSize);
 
   const handleResend = async (requestId: string) => {
     try {
@@ -287,7 +284,14 @@ export default function FeedbackRequestsPageClient() {
                       );
                     })}
                   </div>
-                  <PaginationControls page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} />
+                  <PaginationControls
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={filteredRequests.length}
+                    itemLabel="requests"
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                  />
                 </>
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-600">

@@ -5,7 +5,6 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity, Loader, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,7 +16,7 @@ type AuditLog = {
   action: string;
   entity: string;
   entity_id?: string | null;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 };
 
@@ -120,7 +119,6 @@ export default function AuditPageClient() {
   }, [logs, actionFilter, entityFilter]);
 
   const paginatedLogs = filteredLogs.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.ceil(filteredLogs.length / pageSize);
 
   return (
     <div className="w-full space-y-5">
@@ -226,7 +224,14 @@ export default function AuditPageClient() {
                       </div>
                     ))}
                   </div>
-                  <PaginationControls page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} />
+                  <PaginationControls
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={filteredLogs.length}
+                    itemLabel="audit logs"
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                  />
                 </>
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-600">
