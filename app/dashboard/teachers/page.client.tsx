@@ -2,9 +2,10 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, Mail, Loader2 } from "lucide-react";
+import { Users, Mail, Loader2, Pencil, Trash2, Plus, X } from "lucide-react";
 
 type Teacher = {
   id: string;
@@ -32,6 +33,7 @@ type TeacherMutationResponse = {
 };
 
 export default function TeachersPage() {
+  const router = useRouter();
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [students, setStudents] = React.useState<Student[]>([]);
   const [query, setQuery] = React.useState("");
@@ -61,6 +63,10 @@ export default function TeachersPage() {
   const [sendTeacherSetupLink, setSendTeacherSetupLink] = React.useState(true);
   const [teacherSaving, setTeacherSaving] = React.useState(false);
   const [teacherError, setTeacherError] = React.useState<string | null>(null);
+  const [selectedTeacherIds, setSelectedTeacherIds] = React.useState<string[]>([]);
+  const [bulkTeacherSaving, setBulkTeacherSaving] = React.useState(false);
+  const [bulkTeacherError, setBulkTeacherError] = React.useState<string | null>(null);
+  const [bulkTeacherSuccess, setBulkTeacherSuccess] = React.useState<string | null>(null);
   const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
   const [editTeacherId, setEditTeacherId] = React.useState<string | null>(null);
   const [editTeacherName, setEditTeacherName] = React.useState("");
@@ -84,12 +90,7 @@ export default function TeachersPage() {
         const sData = (await sRes.json()) as Student[];
         setTeachers(data);
         setStudents(sData);
-        if (!courseLeadTeacher && data.length > 0) {
-          setCourseLeadTeacher(data[0].id);
-        }
-        if (!courseSelectedStudents.length && sData.length) {
-          setCourseSelectedStudents([]);
-        }
+        setCourseLeadTeacher((current) => current || data[0]?.id || "");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load teachers");
       } finally {
@@ -116,28 +117,103 @@ export default function TeachersPage() {
     const start = (teacherPage - 1) * teacherPageSize;
     return filtered.slice(start, start + teacherPageSize);
   }, [filtered, teacherPage, teacherPageSize]);
+  const visibleTeacherIds = React.useMemo(
+    () => paginatedTeachers.map((teacher) => teacher.id),
+    [paginatedTeachers]
+  );
+  const visibleTeacherIdSet = React.useMemo(
+    () => new Set(visibleTeacherIds),
+    [visibleTeacherIds]
+  );
+  const selectedTeacherCount = selectedTeacherIds.length;
+  const selectedVisibleTeacherCount = visibleTeacherIds.filter((id) =>
+    selectedTeacherIds.includes(id)
+  ).length;
+  const allVisibleTeachersSelected =
+    visibleTeacherIds.length > 0 && selectedVisibleTeacherCount === visibleTeacherIds.length;
+
+  React.useEffect(() => {
+    const currentIds = new Set(teachers.map((teacher) => teacher.id));
+    setSelectedTeacherIds((prev) => prev.filter((id) => currentIds.has(id)));
+  }, [teachers]);
+
+  const toggleTeacherSelection = (id: string, checked: boolean) => {
+    setBulkTeacherError(null);
+    setBulkTeacherSuccess(null);
+    setSelectedTeacherIds((prev) => {
+      if (checked) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((existingId) => existingId !== id);
+    });
+  };
+
+  const toggleVisibleTeacherSelection = (checked: boolean) => {
+    setBulkTeacherError(null);
+    setBulkTeacherSuccess(null);
+    setSelectedTeacherIds((prev) => {
+      if (!checked) return prev.filter((id) => !visibleTeacherIdSet.has(id));
+      return Array.from(new Set([...prev, ...visibleTeacherIds]));
+    });
+  };
+
+  const clearTeacherSelection = () => {
+    setSelectedTeacherIds([]);
+    setBulkTeacherError(null);
+    setBulkTeacherSuccess(null);
+  };
+
+  const deleteTeacherById = async (teacherId: string) => {
+    const res = await fetch(`/api/teachers/${teacherId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const text = await res.text();
+      try {
+        const parsed = JSON.parse(text) as { error?: string; message?: string };
+        throw new Error(parsed.error || parsed.message || "Failed to delete teacher");
+      } catch {
+        throw new Error(text || "Failed to delete teacher");
+      }
+    }
+  };
 
   const deleteTeacher = async (teacher: Teacher) => {
     if (!confirm(`Delete teacher ${teacher.name}?`)) return;
 
     try {
-      const res = await fetch(`/api/teachers/${teacher.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const text = await res.text();
-        try {
-          const parsed = JSON.parse(text);
-          throw new Error(parsed.error || parsed.message || "Failed to delete teacher");
-        } catch {
-          throw new Error(text || "Failed to delete teacher");
-        }
-      }
-
+      await deleteTeacherById(teacher.id);
       const tRes = await fetch("/api/teachers", { cache: "no-store" });
       if (!tRes.ok) throw new Error(await tRes.text());
       setTeachers((await tRes.json()) as Teacher[]);
+      if (selectedTeacherIds.includes(teacher.id)) {
+        setSelectedTeacherIds((prev) => prev.filter((id) => id !== teacher.id));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete teacher");
     }
+  };
+
+  const bulkDeleteTeachers = async () => {
+    if (!selectedTeacherIds.length) return;
+    const count = selectedTeacherIds.length;
+    if (!confirm(`Delete ${count} selected teacher${count === 1 ? "" : "s"}?`)) return;
+
+    setBulkTeacherSaving(true);
+    setBulkTeacherError(null);
+    setBulkTeacherSuccess(null);
+    try {
+      await Promise.all(selectedTeacherIds.map((teacherId) => deleteTeacherById(teacherId)));
+      const tRes = await fetch("/api/teachers", { cache: "no-store" });
+      if (!tRes.ok) throw new Error(await tRes.text());
+      setTeachers((await tRes.json()) as Teacher[]);
+      setSelectedTeacherIds([]);
+      setBulkTeacherSuccess(`Deleted ${count} teacher${count === 1 ? "" : "s"}.`);
+    } catch (err) {
+      setBulkTeacherError(err instanceof Error ? err.message : "Failed to delete selected teachers");
+    } finally {
+      setBulkTeacherSaving(false);
+    }
+  };
+
+  const openTeacherProfile = (teacherId: string) => {
+    router.push(`/dashboard/teachers/${teacherId}`);
   };
 
   return (
@@ -179,7 +255,8 @@ export default function TeachersPage() {
               className="w-56"
             />
             <Button variant="secondary" onClick={() => setOpenCourse(true)}>
-              + Add Course
+              <Plus className="h-4 w-4" />
+              Add Course
             </Button>
             <Button
               onClick={() => {
@@ -187,7 +264,8 @@ export default function TeachersPage() {
                 setOpenTeacherModal(true);
               }}
             >
-              + Add Teacher
+              <Plus className="h-4 w-4" />
+              Add Teacher
             </Button>
           </div>
         </CardHeader>
@@ -202,14 +280,85 @@ export default function TeachersPage() {
               {error}
             </div>
           )}
+          {!loading && !error && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  {selectedTeacherCount ? `${selectedTeacherCount} selected` : "Bulk actions"}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Select teachers across the current page and remove them together.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <Checkbox
+                    checked={allVisibleTeachersSelected}
+                    disabled={!visibleTeacherIds.length || bulkTeacherSaving}
+                    onCheckedChange={toggleVisibleTeacherSelection}
+                  />
+                  Visible
+                </label>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={clearTeacherSelection}
+                  disabled={!selectedTeacherCount || bulkTeacherSaving}
+                  title="Clear selection"
+                  aria-label="Clear selection"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="destructive"
+                  onClick={bulkDeleteTeachers}
+                  disabled={!selectedTeacherCount || bulkTeacherSaving}
+                  title="Delete selected teachers"
+                  aria-label="Delete selected teachers"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          {bulkTeacherError && (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {bulkTeacherError}
+            </div>
+          )}
+          {bulkTeacherSuccess && (
+            <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              {bulkTeacherSuccess}
+            </div>
+          )}
           {!loading && !error && viewMode === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {paginatedTeachers.map((t) => (
                 <div
                   key={t.id}
-                  className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => openTeacherProfile(t.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openTeacherProfile(t.id);
+                    }
+                  }}
+                  className={`group relative rounded-lg border bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                    selectedTeacherIds.includes(t.id) ? "border-primary/30 ring-1 ring-primary/20" : "border-slate-200"
+                  } cursor-pointer`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="absolute right-3 top-3 z-10" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedTeacherIds.includes(t.id)}
+                      disabled={bulkTeacherSaving}
+                      aria-label={`Select teacher ${t.name}`}
+                      onCheckedChange={(checked) => toggleTeacherSelection(t.id, checked)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 pr-10">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
                       <Users className="h-5 w-5" />
                     </div>
@@ -218,12 +367,9 @@ export default function TeachersPage() {
                       <p className="text-xs text-slate-600">{t.email}</p>
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Button size="sm" variant="outline" asChild>
-                      <Link href={`/dashboard/teachers/${t.id}`}>Profile</Link>
-                    </Button>
+                  <div className="mt-4 flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
-                      size="sm"
+                      size="icon"
                       variant="outline"
                       onClick={() => {
                         setEditTeacherId(t.id);
@@ -232,16 +378,20 @@ export default function TeachersPage() {
                         setEditTeacherSendSetup(false);
                         setOpenEditTeacher(true);
                       }}
+                      title="Edit teacher"
+                      aria-label="Edit teacher"
                     >
-                      Edit
+                      <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
-                      size="sm"
+                      size="icon"
                       variant="outline"
                       className="text-red-600 hover:bg-red-50"
                       onClick={() => deleteTeacher(t)}
+                      title="Delete teacher"
+                      aria-label="Delete teacher"
                     >
-                      Delete
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -258,6 +408,14 @@ export default function TeachersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
+                  <th className="w-10 py-2 pr-3">
+                    <Checkbox
+                      checked={allVisibleTeachersSelected}
+                      disabled={!visibleTeacherIds.length || bulkTeacherSaving}
+                      aria-label="Select visible teachers"
+                      onCheckedChange={toggleVisibleTeacherSelection}
+                    />
+                  </th>
                   <th className="py-2 pr-3">Name</th>
                   <th className="py-2 pr-3">Email</th>
                   <th className="py-2 pr-0 text-right">Actions</th>
@@ -265,21 +423,40 @@ export default function TeachersPage() {
               </thead>
               <tbody>
                 {paginatedTeachers.map((t) => (
-                  <tr key={t.id} className="border-t">
-                    <td className="py-2 pr-3">{t.name}</td>
+                  <tr
+                    key={t.id}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => openTeacherProfile(t.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openTeacherProfile(t.id);
+                      }
+                    }}
+                    className={`border-t transition hover:bg-slate-50 ${
+                      selectedTeacherIds.includes(t.id) ? "bg-primary/5" : ""
+                    } cursor-pointer`}
+                  >
+                    <td className="py-2 pr-3" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedTeacherIds.includes(t.id)}
+                        disabled={bulkTeacherSaving}
+                        aria-label={`Select teacher ${t.name}`}
+                        onCheckedChange={(checked) => toggleTeacherSelection(t.id, checked)}
+                      />
+                    </td>
+                    <td className="py-2 pr-3 font-medium text-slate-900">{t.name}</td>
                     <td className="py-2 pr-3">
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-slate-400" />
                         <span>{t.email}</span>
                       </div>
                     </td>
-                    <td className="py-2 pr-0 text-right">
+                    <td className="py-2 pr-0 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex flex-wrap justify-end gap-2">
-                        <Button size="sm" variant="outline" asChild>
-                          <Link href={`/dashboard/teachers/${t.id}`}>Profile</Link>
-                        </Button>
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="outline"
                           onClick={() => {
                             setEditTeacherId(t.id);
@@ -288,16 +465,20 @@ export default function TeachersPage() {
                             setEditTeacherSendSetup(false);
                             setOpenEditTeacher(true);
                           }}
+                          title="Edit teacher"
+                          aria-label="Edit teacher"
                         >
-                          Edit
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="outline"
                           className="text-red-600 hover:bg-red-50"
                           onClick={() => deleteTeacher(t)}
+                          title="Delete teacher"
+                          aria-label="Delete teacher"
                         >
-                          Delete
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </td>
@@ -305,7 +486,7 @@ export default function TeachersPage() {
                 ))}
                 {!filtered.length && (
                   <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={3}>
+                    <td className="py-6 text-center text-slate-500" colSpan={4}>
                       No teachers yet.
                     </td>
                   </tr>

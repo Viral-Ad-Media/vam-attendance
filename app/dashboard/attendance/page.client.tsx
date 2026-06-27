@@ -30,12 +30,6 @@ import {
   Legend,
   Bar,
 } from "recharts";
-import {
-  getAllSessions,
-  getSessionAttendance,
-  getAllStudents,
-  recordAttendance,
-} from "@/lib/supabase/database";
 
 // Type definitions
 type TabKey = "overview" | "teachers" | "students" | "sessions";
@@ -59,8 +53,16 @@ interface Student {
   duration_weeks: number;
   sessions_per_week: number;
   class_name: string;
-  teacher_id: string;
   created_at: string;
+}
+
+interface Enrollment {
+  id: string;
+  student_id: string;
+  course_id: string;
+  teacher_id?: string | null;
+  status: "active" | "paused" | "completed" | "dropped";
+  enrolled_at?: string | null;
 }
 
 interface Session {
@@ -111,6 +113,42 @@ const byId = <T extends { id: string }>(arr: T[]) => {
   const m = new Map<string, T>();
   arr.forEach((x) => m.set(x.id, x));
   return m;
+};
+
+const getSessionsForStudent = (
+  sessions: Session[],
+  enrollments: Enrollment[],
+  studentId: string,
+  includeSessionId?: string
+) => {
+  if (!studentId) return [];
+
+  const studentEnrollments = enrollments.filter(
+    (enrollment) =>
+      enrollment.student_id === studentId && enrollment.status !== "dropped"
+  );
+
+  const courseIds = new Set(studentEnrollments.map((enrollment) => enrollment.course_id));
+  const teacherIds = new Set(
+    studentEnrollments
+      .map((enrollment) => enrollment.teacher_id)
+      .filter((teacherId): teacherId is string => Boolean(teacherId))
+  );
+
+  const ordered = sessions.filter(
+    (session) =>
+      (session.course_id && courseIds.has(session.course_id)) ||
+      (session.teacher_id && teacherIds.has(session.teacher_id))
+  );
+
+  if (includeSessionId && !ordered.some((session) => session.id === includeSessionId)) {
+    const currentSession = sessions.find((session) => session.id === includeSessionId);
+    if (currentSession) ordered.unshift(currentSession);
+  }
+
+  const uniqueSessions = new Map<string, Session>();
+  ordered.forEach((session) => uniqueSessions.set(session.id, session));
+  return Array.from(uniqueSessions.values());
 };
 
 // Component: Simple Modal
@@ -360,6 +398,7 @@ function AttendancePage() {
   // Data
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [students, setStudents] = React.useState<Student[]>([]);
+  const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [attendance, setAttendance] = React.useState<Attendance[]>([]);
   const [viewMode, setViewMode] = React.useState<"list" | "calendar">("list");
@@ -474,14 +513,16 @@ function AttendancePage() {
 
   /* ------------ Loaders ------------ */
   const reload = React.useCallback(async () => {
-    const [t, s, ss, a] = await Promise.all([
+    const [t, s, e, ss, a] = await Promise.all([
       fetch("/api/teachers", { cache: "no-store" }),
       fetch("/api/students", { cache: "no-store" }),
+      fetch("/api/enrollments", { cache: "no-store" }),
       fetch("/api/sessions", { cache: "no-store" }),
       fetch("/api/attendance", { cache: "no-store" }),
     ]);
     if (t.ok) setTeachers((await t.json()) as Teacher[]);
     if (s.ok) setStudents((await s.json()) as Student[]);
+    if (e.ok) setEnrollments((await e.json()) as Enrollment[]);
     if (ss.ok) setSessions((await ss.json()) as Session[]);
     if (a.ok) setAttendance((await a.json()) as Attendance[]);
   }, []);
@@ -494,7 +535,6 @@ function AttendancePage() {
   // (Subscriptions removed to simplify client requirements)
 
   /* ------------ Derived ------------ */
-  const tMap = React.useMemo(() => byId(teachers), [teachers]);
   const sessionMap = React.useMemo(() => byId(sessions), [sessions]);
 
   const filteredStudents = React.useMemo(() => {
@@ -596,6 +636,40 @@ function AttendancePage() {
       ),
     [sessions, teacherFilter]
   );
+  const attendSessionOptions = React.useMemo(
+    () => getSessionsForStudent(sessions, enrollments, attendStudentId),
+    [attendStudentId, enrollments, sessions]
+  );
+  const editAttendSessionOptions = React.useMemo(
+    () =>
+      getSessionsForStudent(
+        sessions,
+        enrollments,
+        editAttendStudentId,
+        editAttendSessionId
+      ),
+    [editAttendSessionId, editAttendStudentId, enrollments, sessions]
+  );
+
+  React.useEffect(() => {
+    if (
+      attendSessionId &&
+      attendStudentId &&
+      !attendSessionOptions.some((session) => session.id === attendSessionId)
+    ) {
+      setAttendSessionId("");
+    }
+  }, [attendSessionId, attendSessionOptions, attendStudentId]);
+
+  React.useEffect(() => {
+    if (
+      editAttendSessionId &&
+      editAttendStudentId &&
+      !editAttendSessionOptions.some((session) => session.id === editAttendSessionId)
+    ) {
+      setEditAttendSessionId("");
+    }
+  }, [editAttendSessionId, editAttendSessionOptions, editAttendStudentId]);
 
   const kpis = React.useMemo(() => {
     const totalStudents = students.length;
@@ -1455,6 +1529,8 @@ function AttendancePage() {
                     onClick={() => {
                       setAttendanceError(null);
                       setAttendanceNotice(null);
+                      setAttendStudentId(studentFilter === "all" ? "" : studentFilter);
+                      setAttendSessionId("");
                       setOpenAttend(true);
                     }}
                   >
@@ -1592,8 +1668,24 @@ function AttendancePage() {
                               />
                             </td>
                             <td className="py-2 pr-3">
-                              {(sess?.title ?? "Session")} •{" "}
-                              {sess ? fmtDate(sess.starts_at) : ""}
+                              {sess ? (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-left font-medium text-slate-800 hover:text-slate-950 hover:underline"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onOpenEditSession(sess);
+                                  }}
+                                >
+                                  <span>{sess.title ?? "Session"}</span>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              ) : (
+                                <span className="font-medium text-slate-800">Session</span>
+                              )}
+                              <span className="ml-1 text-slate-500">
+                                • {sess ? fmtDate(sess.starts_at) : ""}
+                              </span>
                             </td>
                             <td className="py-2 pr-3">
                               {stu?.name ?? "—"}
@@ -1748,7 +1840,21 @@ function AttendancePage() {
                                     {renderStatusBadge(a.status, "xs")}
                                   </div>
                                   <div className="text-[10px] text-slate-600">
-                                    {sess?.title ?? "Session"}
+                                    {sess ? (
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 text-left font-semibold text-slate-700 hover:text-slate-950 hover:underline"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          onOpenEditSession(sess);
+                                        }}
+                                      >
+                                        <span>{sess.title ?? "Session"}</span>
+                                        <Pencil className="h-3 w-3" />
+                                      </button>
+                                    ) : (
+                                      "Session"
+                                    )}
                                   </div>
                                   {a.notes && (
                                     <div
@@ -1848,36 +1954,56 @@ function AttendancePage() {
         maxWidth="max-w-2xl"
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Select
-            value={attendSessionId}
-            onValueChange={setAttendSessionId}
-          >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Select session" />
-            </SelectTrigger>
-            <SelectContent>
-              {sessions.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {(s.title ?? "Session")} • {fmtDate(s.starts_at)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={attendStudentId}
-            onValueChange={setAttendStudentId}
-          >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Select student" />
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((st) => (
-                <SelectItem key={st.id} value={st.id}>
-                  {st.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="sm:col-span-2">
+            <Label htmlFor="attendance-student">Student</Label>
+            <Select
+              value={attendStudentId}
+              onValueChange={setAttendStudentId}
+            >
+              <SelectTrigger id="attendance-student" className="mt-2 h-9 w-full">
+                <SelectValue placeholder="Select student" />
+              </SelectTrigger>
+              <SelectContent>
+                {students.map((st) => (
+                  <SelectItem key={st.id} value={st.id}>
+                    {st.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="attendance-session">Session</Label>
+            <Select value={attendSessionId} onValueChange={setAttendSessionId}>
+              <SelectTrigger
+                id="attendance-session"
+                className="mt-2 h-9 w-full"
+                disabled={!attendStudentId || !attendSessionOptions.length}
+              >
+                <SelectValue
+                  placeholder={
+                    !attendStudentId
+                      ? "Select a student first"
+                      : attendSessionOptions.length
+                        ? "Select session"
+                        : "No sessions available"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {attendSessionOptions.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {(s.title ?? "Session")} • {fmtDate(s.starts_at)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {attendStudentId && !attendSessionOptions.length && (
+              <p className="mt-1 text-xs text-amber-700">
+                No sessions are linked to this student yet.
+              </p>
+            )}
+          </div>
           <Select
             value={attendStatus}
             onValueChange={(v: Status) => setAttendStatus(v)}
@@ -2104,37 +2230,56 @@ function AttendancePage() {
         maxWidth="max-w-2xl"
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Select
-            value={editAttendSessionId}
-            onValueChange={setEditAttendSessionId}
-          >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Select session" />
-            </SelectTrigger>
-            <SelectContent>
-              {sessions.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {(s.title ?? "Session")} • {fmtDate(s.starts_at)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={editAttendStudentId}
-            onValueChange={setEditAttendStudentId}
-          >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Select student" />
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((st) => (
-                <SelectItem key={st.id} value={st.id}>
-                  {st.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="sm:col-span-2">
+            <Label htmlFor="edit-attendance-student">Student</Label>
+            <Select
+              value={editAttendStudentId}
+              onValueChange={setEditAttendStudentId}
+            >
+              <SelectTrigger id="edit-attendance-student" className="mt-2 h-9 w-full">
+                <SelectValue placeholder="Select student" />
+              </SelectTrigger>
+              <SelectContent>
+                {students.map((st) => (
+                  <SelectItem key={st.id} value={st.id}>
+                    {st.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="edit-attendance-session">Session</Label>
+            <Select value={editAttendSessionId} onValueChange={setEditAttendSessionId}>
+              <SelectTrigger
+                id="edit-attendance-session"
+                className="mt-2 h-9 w-full"
+                disabled={!editAttendStudentId || !editAttendSessionOptions.length}
+              >
+                <SelectValue
+                  placeholder={
+                    !editAttendStudentId
+                      ? "Select a student first"
+                      : editAttendSessionOptions.length
+                        ? "Select session"
+                        : "No sessions available"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {editAttendSessionOptions.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {(s.title ?? "Session")} • {fmtDate(s.starts_at)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {editAttendStudentId && !editAttendSessionOptions.length && (
+              <p className="mt-1 text-xs text-amber-700">
+                No sessions are linked to this student yet.
+              </p>
+            )}
+          </div>
 
           <Select
             value={editAttendStatus}

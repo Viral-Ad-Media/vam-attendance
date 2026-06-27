@@ -2,12 +2,13 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GraduationCap, Mail, Loader2 } from "lucide-react";
+import { GraduationCap, Mail, Loader2, Pencil, Trash2, Plus, X } from "lucide-react";
 
 type Student = {
   id: string;
@@ -56,6 +57,7 @@ async function readResponseError(response: Response, fallback: string) {
 }
 
 export default function StudentsPage() {
+  const router = useRouter();
   const [students, setStudents] = React.useState<Student[]>([]);
   const [courses, setCourses] = React.useState<Course[]>([]);
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
@@ -68,6 +70,10 @@ export default function StudentsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("list");
+  const [selectedStudentIds, setSelectedStudentIds] = React.useState<string[]>([]);
+  const [bulkStudentSaving, setBulkStudentSaving] = React.useState(false);
+  const [bulkStudentError, setBulkStudentError] = React.useState<string | null>(null);
+  const [bulkStudentSuccess, setBulkStudentSuccess] = React.useState<string | null>(null);
   const [openEnroll, setOpenEnroll] = React.useState(false);
   const [enrollStudentId, setEnrollStudentId] = React.useState<string>("");
   const [enrollCourseIds, setEnrollCourseIds] = React.useState<string[]>([]);
@@ -181,6 +187,20 @@ export default function StudentsPage() {
     const start = (studentPage - 1) * studentPageSize;
     return filtered.slice(start, start + studentPageSize);
   }, [filtered, studentPage, studentPageSize]);
+  const visibleStudentIds = React.useMemo(
+    () => paginatedStudents.map((student) => student.id),
+    [paginatedStudents]
+  );
+  const visibleStudentIdSet = React.useMemo(
+    () => new Set(visibleStudentIds),
+    [visibleStudentIds]
+  );
+  const selectedStudentCount = selectedStudentIds.length;
+  const selectedVisibleStudentCount = visibleStudentIds.filter((id) =>
+    selectedStudentIds.includes(id)
+  ).length;
+  const allVisibleStudentsSelected =
+    visibleStudentIds.length > 0 && selectedVisibleStudentCount === visibleStudentIds.length;
   const deferredEnrollCourseSearch = React.useDeferredValue(enrollCourseSearch);
   const filteredEnrollCourses = React.useMemo(() => {
     const q = deferredEnrollCourseSearch.trim().toLowerCase();
@@ -244,16 +264,6 @@ export default function StudentsPage() {
     setOpenStudentModal(true);
   };
 
-  const openEnrollmentDialog = (studentId?: string) => {
-    const resolvedStudentId = studentId ?? enrollStudentId ?? students[0]?.id ?? "";
-    setEnrollError(null);
-    setEnrollSuccess(null);
-    setEnrollStatus("active");
-    setEnrollCourseSearch("");
-    setEnrollStudentId(resolvedStudentId);
-    setOpenEnroll(true);
-  };
-
   // Update selected courses when student selection changes
   React.useEffect(() => {
     if (!enrollStudentId) return;
@@ -262,6 +272,11 @@ export default function StudentsPage() {
       .map((e) => e.course_id);
     setEnrollCourseIds(enrolled);
   }, [enrollStudentId, enrollments]);
+
+  React.useEffect(() => {
+    const currentIds = new Set(students.map((student) => student.id));
+    setSelectedStudentIds((prev) => prev.filter((id) => currentIds.has(id)));
+  }, [students]);
 
   React.useEffect(() => {
     if (!detailStudent) return;
@@ -289,6 +304,47 @@ export default function StudentsPage() {
     };
     loadDetail();
   }, [detailStudent]);
+
+  const toggleStudentSelection = (id: string, checked: boolean) => {
+    setBulkStudentError(null);
+    setBulkStudentSuccess(null);
+    setSelectedStudentIds((prev) => {
+      if (checked) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((existingId) => existingId !== id);
+    });
+  };
+
+  const toggleVisibleStudentSelection = (checked: boolean) => {
+    setBulkStudentError(null);
+    setBulkStudentSuccess(null);
+    setSelectedStudentIds((prev) => {
+      if (!checked) return prev.filter((id) => !visibleStudentIdSet.has(id));
+      return Array.from(new Set([...prev, ...visibleStudentIds]));
+    });
+  };
+
+  const clearStudentSelection = () => {
+    setSelectedStudentIds([]);
+    setBulkStudentError(null);
+    setBulkStudentSuccess(null);
+  };
+
+  const openStudentProfile = (studentId: string) => {
+    router.push(`/dashboard/students/${studentId}`);
+  };
+
+  const deleteStudentById = async (studentId: string) => {
+    const res = await fetch(`/api/students/${studentId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const text = await res.text();
+      try {
+        const parsed = JSON.parse(text);
+        throw new Error(parsed.error || parsed.message || "Failed to delete student");
+      } catch {
+        throw new Error(text || "Failed to delete student");
+      }
+    }
+  };
 
   const saveEnrollment = async () => {
     if (!enrollStudentId) return;
@@ -468,17 +524,7 @@ export default function StudentsPage() {
     if (!confirm(`Delete student ${student.name}?`)) return;
 
     try {
-      const res = await fetch(`/api/students/${student.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const text = await res.text();
-        try {
-          const parsed = JSON.parse(text);
-          throw new Error(parsed.error || parsed.message || "Failed to delete student");
-        } catch {
-          throw new Error(text || "Failed to delete student");
-        }
-      }
-
+      await deleteStudentById(student.id);
       const [sRes, eRes] = await Promise.all([
         fetch("/api/students", { cache: "no-store" }),
         fetch("/api/enrollments", { cache: "no-store" }),
@@ -486,8 +532,39 @@ export default function StudentsPage() {
       if (sRes.ok) setStudents((await sRes.json()) as Student[]);
       if (eRes.ok) setEnrollments((await eRes.json()) as Enrollment[]);
       if (detailStudent?.id === student.id) setDetailStudent(null);
+      if (selectedStudentIds.includes(student.id)) {
+        setSelectedStudentIds((prev) => prev.filter((id) => id !== student.id));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete student");
+    }
+  };
+
+  const bulkDeleteStudents = async () => {
+    if (!selectedStudentIds.length) return;
+    const count = selectedStudentIds.length;
+    if (!confirm(`Delete ${count} selected student${count === 1 ? "" : "s"}?`)) return;
+
+    setBulkStudentSaving(true);
+    setBulkStudentError(null);
+    setBulkStudentSuccess(null);
+    try {
+      await Promise.all(selectedStudentIds.map((studentId) => deleteStudentById(studentId)));
+      const [sRes, eRes] = await Promise.all([
+        fetch("/api/students", { cache: "no-store" }),
+        fetch("/api/enrollments", { cache: "no-store" }),
+      ]);
+      if (sRes.ok) setStudents((await sRes.json()) as Student[]);
+      if (eRes.ok) setEnrollments((await eRes.json()) as Enrollment[]);
+      if (detailStudent && selectedStudentIds.includes(detailStudent.id)) {
+        setDetailStudent(null);
+      }
+      setSelectedStudentIds([]);
+      setBulkStudentSuccess(`Deleted ${count} student${count === 1 ? "" : "s"}.`);
+    } catch (err) {
+      setBulkStudentError(err instanceof Error ? err.message : "Failed to delete selected students");
+    } finally {
+      setBulkStudentSaving(false);
     }
   };
 
@@ -512,7 +589,7 @@ export default function StudentsPage() {
             <CardHeader className="flex flex-wrap items-center justify-between gap-3 pb-2">
               <div>
                 <CardTitle className="text-sm font-semibold text-slate-800">Students</CardTitle>
-                <p className="text-xs text-slate-500">Manage and enroll students into courses</p>
+                <p className="text-xs text-slate-500">Manage student records</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="w-[220px]">
@@ -556,14 +633,75 @@ export default function StudentsPage() {
                   }}
                   className="h-9 w-[260px]"
                 />
-                <Button onClick={openCreateStudentDialog}>+ Add Student</Button>
+                <Button onClick={openCreateStudentDialog}>
+                  <Plus className="h-4 w-4" />
+                  Add Student
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {selectedStudentCount ? `${selectedStudentCount} selected` : "Bulk actions"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Select students on this page and remove them together.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                    <Checkbox
+                      checked={allVisibleStudentsSelected}
+                      disabled={!visibleStudentIds.length || bulkStudentSaving}
+                      onCheckedChange={toggleVisibleStudentSelection}
+                    />
+                    Visible
+                  </label>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={clearStudentSelection}
+                    disabled={!selectedStudentCount || bulkStudentSaving}
+                    title="Clear selection"
+                    aria-label="Clear selection"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    onClick={bulkDeleteStudents}
+                    disabled={!selectedStudentCount || bulkStudentSaving}
+                    title="Delete selected students"
+                    aria-label="Delete selected students"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              {bulkStudentError && (
+                <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {bulkStudentError}
+                </div>
+              )}
+              {bulkStudentSuccess && (
+                <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  {bulkStudentSuccess}
+                </div>
+              )}
               {viewMode === "list" ? (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-slate-500">
+                      <th className="w-10 py-2 pr-3">
+                        <Checkbox
+                          checked={allVisibleStudentsSelected}
+                          disabled={!visibleStudentIds.length || bulkStudentSaving}
+                          aria-label="Select visible students"
+                          onCheckedChange={toggleVisibleStudentSelection}
+                        />
+                      </th>
                       <th className="py-2 pr-3">Name</th>
                       <th className="py-2 pr-3">Email</th>
                       <th className="py-2 pr-3">Phone</th>
@@ -574,8 +712,30 @@ export default function StudentsPage() {
                   </thead>
                   <tbody>
                     {paginatedStudents.map((s) => (
-                      <tr key={s.id} className="border-t">
-                        <td className="py-2 pr-3">{s.name}</td>
+                      <tr
+                        key={s.id}
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => openStudentProfile(s.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openStudentProfile(s.id);
+                          }
+                        }}
+                        className={`border-t transition hover:bg-slate-50 ${
+                          selectedStudentIds.includes(s.id) ? "bg-primary/5" : ""
+                        } cursor-pointer`}
+                      >
+                        <td className="py-2 pr-3" onClick={(event) => event.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedStudentIds.includes(s.id)}
+                            disabled={bulkStudentSaving}
+                            aria-label={`Select student ${s.name}`}
+                            onCheckedChange={(checked) => toggleStudentSelection(s.id, checked)}
+                          />
+                        </td>
+                        <td className="py-2 pr-3 font-medium text-slate-900">{s.name}</td>
                         <td className="py-2 pr-3">
                           <div className="flex items-center gap-2">
                             <Mail className="h-4 w-4 text-slate-400" />
@@ -585,22 +745,10 @@ export default function StudentsPage() {
                         <td className="py-2 pr-3">{s.phone ?? "—"}</td>
                         <td className="py-2 pr-3">{s.program ?? "—"}</td>
                         <td className="py-2 pr-3">{s.country ?? "—"}</td>
-                        <td className="py-2 pr-0 text-right">
+                        <td className="py-2 pr-0 text-right" onClick={(event) => event.stopPropagation()}>
                           <div className="inline-flex flex-wrap justify-end gap-2">
-                            <Button size="sm" variant="outline" asChild>
-                              <Link href={`/dashboard/students/${s.id}`}>Profile</Link>
-                            </Button>
                             <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                openEnrollmentDialog(s.id);
-                              }}
-                            >
-                              Enroll
-                            </Button>
-                            <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
                               onClick={() => {
                                 setEditStudentId(s.id);
@@ -610,16 +758,20 @@ export default function StudentsPage() {
                                 setEditStudentCountry(s.country || "");
                                 setOpenEditStudent(true);
                               }}
+                              title="Edit student"
+                              aria-label="Edit student"
                             >
-                              Edit
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
                               className="text-red-600 hover:bg-red-50"
                               onClick={() => deleteStudent(s)}
+                              title="Delete student"
+                              aria-label="Delete student"
                             >
-                              Delete
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </td>
@@ -627,7 +779,7 @@ export default function StudentsPage() {
                     ))}
                     {!filtered.length && (
                       <tr>
-                        <td className="py-6 text-center text-slate-500" colSpan={6}>
+                        <td className="py-6 text-center text-slate-500" colSpan={7}>
                           No students found. Use “Add Student” to get started.
                         </td>
                       </tr>
@@ -637,8 +789,30 @@ export default function StudentsPage() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {paginatedStudents.map((s) => (
-                    <div key={s.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                      <div className="flex items-center gap-2">
+                    <div
+                      key={s.id}
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => openStudentProfile(s.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openStudentProfile(s.id);
+                        }
+                      }}
+                      className={`group relative cursor-pointer rounded-lg border bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                        selectedStudentIds.includes(s.id) ? "border-primary/30 ring-1 ring-primary/20" : "border-slate-200"
+                      }`}
+                    >
+                      <div className="absolute right-3 top-3 z-10" onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedStudentIds.includes(s.id)}
+                          disabled={bulkStudentSaving}
+                          aria-label={`Select student ${s.name}`}
+                          onCheckedChange={(checked) => toggleStudentSelection(s.id, checked)}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pr-10">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                           <GraduationCap className="h-4 w-4" />
                         </div>
@@ -652,21 +826,9 @@ export default function StudentsPage() {
                         <p>Program: {s.program ?? "—"}</p>
                         <p>Country: {s.country ?? "—"}</p>
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <Button size="sm" variant="outline" asChild>
-                          <Link href={`/dashboard/students/${s.id}`}>Profile</Link>
-                        </Button>
+                      <div className="mt-3 flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
                         <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            openEnrollmentDialog(s.id);
-                          }}
-                        >
-                          Enroll
-                        </Button>
-                        <Button
-                          size="sm"
+                          size="icon"
                           variant="outline"
                           onClick={() => {
                             setEditStudentId(s.id);
@@ -676,16 +838,20 @@ export default function StudentsPage() {
                             setEditStudentCountry(s.country || "");
                             setOpenEditStudent(true);
                           }}
+                          title="Edit student"
+                          aria-label="Edit student"
                         >
-                          Edit
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="outline"
                           className="text-red-600 hover:bg-red-50"
                           onClick={() => deleteStudent(s)}
+                          title="Delete student"
+                          aria-label="Delete student"
                         >
-                          Delete
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
