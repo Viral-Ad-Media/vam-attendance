@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Settings,
   CreditCard,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -33,6 +34,52 @@ type SidebarProps = {
   onNavigate?: () => void;
   onClose?: () => void;
 };
+
+const nav: NavItem[] = [
+  { key: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  {
+    key: "students",
+    label: "Students",
+    icon: GraduationCap,
+    children: [
+      { href: "/dashboard/students", label: "Directory" },
+      { href: "/dashboard/attendance", label: "Attendance" },
+      { href: "/dashboard/feedback", label: "Feedback" },
+    ],
+  },
+  {
+    key: "teachers",
+    label: "Teachers",
+    icon: Users,
+    children: [
+      { href: "/dashboard/teachers", label: "Directory" },
+      { href: "/dashboard/sessions", label: "Sessions" },
+    ],
+  },
+  {
+    key: "courses",
+    label: "Courses",
+    icon: BookOpen,
+    children: [
+      { href: "/dashboard/courses", label: "Courses" },
+      { href: "/dashboard/enrollments", label: "Enrollments" },
+    ],
+  },
+  { key: "reports", href: "/dashboard/reports", label: "Reports", icon: LineChart },
+  { key: "billing", href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  {
+    key: "admin",
+    label: "Admin",
+    icon: ShieldCheck,
+    children: [
+      { href: "/dashboard/audit", label: "Audit logs" },
+      { href: "/dashboard/feedback-requests", label: "Feedback requests" },
+      { href: "/dashboard/invites", label: "Invites" },
+      { href: "/dashboard/import-export", label: "Import/Export" },
+    ],
+  },
+  { key: "settings", href: "/dashboard/settings", label: "Settings", icon: Settings },
+];
 
 export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarProps) {
   const pathname = usePathname();
@@ -64,71 +111,25 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
     try { localStorage.setItem("vam.sidebar.expanded", JSON.stringify(expanded)); } catch {}
   }, [expanded]);
 
-  const nav: NavItem[] = [
-    { key: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-    {
-      key: "courses",
-      label: "Courses",
-      icon: BookOpen,
-      children: [
-        { href: "/dashboard/courses", label: "Courses" },
-        { href: "/dashboard/enrollments", label: "Enrollments" },
-      ],
-    },
-    {
-      key: "teachers",
-      label: "Teachers",
-      icon: Users,
-      children: [
-        { href: "/dashboard/teachers", label: "Directory" },
-        { href: "/dashboard/sessions", label: "Sessions" },
-      ],
-    },
-    {
-      key: "students",
-      label: "Students",
-      icon: GraduationCap,
-      children: [
-        { href: "/dashboard/students", label: "Directory" },
-        { href: "/dashboard/attendance", label: "Attendance" },
-        { href: "/dashboard/feedback", label: "Feedback" },
-      ],
-    },
-    { key: "billing", href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-    {
-      key: "admin",
-      label: "Admin",
-      icon: Settings,
-      children: [
-        { href: "/dashboard/audit", label: "Audit logs" },
-        { href: "/dashboard/feedback-requests", label: "Feedback requests" },
-        { href: "/dashboard/invites", label: "Invites" },
-        { href: "/dashboard/reports", label: "Reports" },
-        { href: "/dashboard/import-export", label: "Import/Export" },
-      ],
-    },
-    { key: "settings", href: "/dashboard/settings", label: "Settings", icon: Settings },
-  ];
-
   // Determine which parent is active (matches any child or parent href)
-  const isItemActive = (item: NavItem) => {
+  const isItemActive = React.useCallback((item: NavItem) => {
     if (item.children?.length) {
       return item.children.some((c) => pathname.startsWith(c.href));
     }
     return item.href ? pathname === item.href : false;
-  };
+  }, [pathname]);
 
-  // Auto-expand active parent on mount (non-collapsed mode)
   React.useEffect(() => {
-    const next: Record<string, boolean> = { ...expanded };
-    nav.forEach((item) => {
-      if (item.children?.length) {
-        if (isItemActive(item)) next[item.key] = true;
-      }
+    setExpanded((current) => {
+      const next = { ...current };
+      nav.forEach((item) => {
+        if (item.children?.length && isItemActive(item)) {
+          next[item.key] = true;
+        }
+      });
+      return next;
     });
-    setExpanded(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once
+  }, [isItemActive]);
 
   const toggle = (key: string) => {
     setExpanded((e) => ({ ...e, [key]: !e[key] }));

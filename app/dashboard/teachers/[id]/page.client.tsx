@@ -11,14 +11,21 @@ import {
   GraduationCap,
   Mail,
   PauseCircle,
+  Pencil,
+  Save,
   Users,
   XCircle,
+  Loader2,
 } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
+import { CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type EnrollmentStatus = "active" | "paused" | "completed" | "dropped";
 type AttendanceStatus = "present" | "absent" | "late";
@@ -69,6 +76,13 @@ type Attendance = {
   session_id: string;
   student_id: string;
   status: AttendanceStatus;
+};
+
+type TeacherMutationResponse = {
+  setup_email_sent?: boolean;
+  setup_email_error?: string | null;
+  error?: string;
+  message?: string;
 };
 
 function getRouteId(value: string | string[] | undefined) {
@@ -125,6 +139,13 @@ export default function TeacherProfilePageClient() {
   const [trainingPageSize, setTrainingPageSize] = React.useState(5);
   const [coursePage, setCoursePage] = React.useState(1);
   const [coursePageSize, setCoursePageSize] = React.useState(10);
+  const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
+  const [editTeacherName, setEditTeacherName] = React.useState("");
+  const [editTeacherEmail, setEditTeacherEmail] = React.useState("");
+  const [editTeacherSendSetup, setEditTeacherSendSetup] = React.useState(false);
+  const [editTeacherSaving, setEditTeacherSaving] = React.useState(false);
+  const [editTeacherError, setEditTeacherError] = React.useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -282,16 +303,86 @@ export default function TeacherProfilePageClient() {
     return courseSummaries.slice(start, start + coursePageSize);
   }, [courseSummaries, coursePage, coursePageSize]);
 
+  const openTeacherEditForm = () => {
+    if (!teacher) return;
+    setEditTeacherName(teacher.name);
+    setEditTeacherEmail(teacher.email);
+    setEditTeacherSendSetup(false);
+    setEditTeacherError(null);
+    setSaveMessage(null);
+    setOpenEditTeacher(true);
+  };
+
+  const closeTeacherEditForm = () => {
+    if (editTeacherSaving) return;
+    setOpenEditTeacher(false);
+    setEditTeacherName("");
+    setEditTeacherEmail("");
+    setEditTeacherSendSetup(false);
+    setEditTeacherError(null);
+  };
+
+  const saveTeacherProfile = async () => {
+    if (!teacher) return;
+
+    try {
+      setEditTeacherSaving(true);
+      setEditTeacherError(null);
+      setSaveMessage(null);
+      const response = await fetch(`/api/teachers/${teacher.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editTeacherName.trim(),
+          email: editTeacherEmail.trim(),
+          sendPasswordSetup: editTeacherSendSetup,
+        }),
+      });
+      const data = (await response.json()) as Teacher & TeacherMutationResponse;
+      if (!response.ok) throw new Error(data.error || "Failed to update teacher");
+      setTeacher((current) => (current ? ({ ...current, ...data } as Teacher) : current));
+      setOpenEditTeacher(false);
+      setEditTeacherName("");
+      setEditTeacherEmail("");
+      setEditTeacherSendSetup(false);
+      if (data.setup_email_sent) {
+        setSaveMessage("Teacher profile saved and password setup email sent.");
+      } else if (editTeacherSendSetup) {
+        setSaveMessage(
+          `Teacher profile saved. Setup email could not be sent${data.setup_email_error ? `: ${data.setup_email_error}` : "."}`
+        );
+      } else {
+        setSaveMessage("Teacher profile saved.");
+      }
+    } catch (err) {
+      setEditTeacherError(err instanceof Error ? err.message : "Failed to update teacher");
+    } finally {
+      setEditTeacherSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <TopBar title="Teacher Profile" subtitle={teacher?.name ?? "Enrollment summary"} showAccountInTitle={false} />
 
-      <Button asChild variant="outline" size="sm">
-        <Link href="/dashboard/teachers">
-          <ArrowLeft className="h-4 w-4" />
-          Teachers
-        </Link>
-      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button asChild variant="outline" size="sm">
+          <Link href="/dashboard/teachers">
+            <ArrowLeft className="h-4 w-4" />
+            Teachers
+          </Link>
+        </Button>
+        <Button size="sm" onClick={openTeacherEditForm} disabled={!teacher || loading || Boolean(error)}>
+          <Pencil className="h-4 w-4" />
+          Edit Profile
+        </Button>
+      </div>
+
+      {saveMessage && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {saveMessage}
+        </div>
+      )}
 
       {loading && (
         <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
@@ -467,6 +558,112 @@ export default function TeacherProfilePageClient() {
           </Card>
         </>
       )}
+
+      <CreationDialog
+        open={openEditTeacher}
+        onOpenChange={(open) => {
+          if (!open) closeTeacherEditForm();
+        }}
+        icon={Pencil}
+        eyebrow="Teacher profile"
+        title="Edit Teacher"
+        description="Update the teacher's name or email and optionally resend a setup link."
+        stats={[
+          {
+            label: "Joined",
+            value: formatDate(teacher?.created_at),
+            hint: "Original profile record",
+          },
+          {
+            label: "Email",
+            value: editTeacherEmail || teacher?.email || "Not set",
+            hint: "Login address",
+          },
+        ]}
+        footer={
+          <>
+            <Button variant="outline" onClick={closeTeacherEditForm} disabled={editTeacherSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={saveTeacherProfile}
+              disabled={
+                editTeacherSaving ||
+                !editTeacherName.trim() ||
+                !editTeacherEmail.trim()
+              }
+            >
+              {editTeacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <CreationSection
+            eyebrow="Identity"
+            title="Profile details"
+            description="These values are synced to the teacher account and the auth profile."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-name">Full name</Label>
+                <Input
+                  id="teacher-edit-name"
+                  placeholder="Amina Johnson"
+                  value={editTeacherName}
+                  onChange={(event) => setEditTeacherName(event.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="name"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-email">Email</Label>
+                <Input
+                  id="teacher-edit-email"
+                  type="email"
+                  placeholder="amina@example.com"
+                  value={editTeacherEmail}
+                  onChange={(event) => setEditTeacherEmail(event.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+          </CreationSection>
+
+          <CreationSection
+            eyebrow="Access"
+            title="Password setup"
+            description="You can resend the setup email after saving if the teacher needs a fresh invite."
+          >
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="teacher-edit-setup"
+                  checked={editTeacherSendSetup}
+                  onCheckedChange={(checked) => setEditTeacherSendSetup(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="teacher-edit-setup" className="text-sm font-medium text-slate-900">
+                    Send password setup email after save
+                  </Label>
+                  <p className="text-xs leading-5 text-slate-500">
+                    Use this when the teacher needs a new login link after you change their profile.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CreationSection>
+
+          {editTeacherError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {editTeacherError}
+            </div>
+          )}
+        </div>
+      </CreationDialog>
     </div>
   );
 }

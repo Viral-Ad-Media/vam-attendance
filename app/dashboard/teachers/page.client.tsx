@@ -5,10 +5,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
+import { CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -16,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, Mail, Loader2, Pencil, Trash2, Plus, X } from "lucide-react";
+import { Users, Mail, Loader2, Pencil, Trash2, Plus, X, UserPlus } from "lucide-react";
 
 type Teacher = {
   id: string;
@@ -31,6 +33,13 @@ type TeacherMutationResponse = {
   error?: string;
   message?: string;
 };
+
+function formatDate(value?: string | null) {
+  if (!value) return "Not set";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not set";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -67,6 +76,7 @@ export default function TeachersPage() {
   const [bulkTeacherSaving, setBulkTeacherSaving] = React.useState(false);
   const [bulkTeacherError, setBulkTeacherError] = React.useState<string | null>(null);
   const [bulkTeacherSuccess, setBulkTeacherSuccess] = React.useState<string | null>(null);
+  const [teacherSuccess, setTeacherSuccess] = React.useState<string | null>(null);
   const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
   const [editTeacherId, setEditTeacherId] = React.useState<string | null>(null);
   const [editTeacherName, setEditTeacherName] = React.useState("");
@@ -161,6 +171,52 @@ export default function TeachersPage() {
     setBulkTeacherSuccess(null);
   };
 
+  const refreshTeachers = async () => {
+    const tRes = await fetch("/api/teachers", { cache: "no-store" });
+    if (!tRes.ok) throw new Error(await tRes.text());
+    setTeachers((await tRes.json()) as Teacher[]);
+  };
+
+  const resetTeacherCreateForm = () => {
+    setNewTeacherName("");
+    setNewTeacherEmail("");
+    setNewTeacherPassword("");
+    setSendTeacherSetupLink(true);
+    setTeacherError(null);
+  };
+
+  const openTeacherCreateForm = () => {
+    setTeacherSuccess(null);
+    resetTeacherCreateForm();
+    setOpenTeacherModal(true);
+  };
+
+  const closeTeacherCreateForm = () => {
+    if (teacherSaving) return;
+    setOpenTeacherModal(false);
+    setTeacherError(null);
+  };
+
+  const openTeacherEditForm = (teacher: Teacher) => {
+    setTeacherSuccess(null);
+    setEditTeacherId(teacher.id);
+    setEditTeacherName(teacher.name);
+    setEditTeacherEmail(teacher.email);
+    setEditTeacherSendSetup(false);
+    setEditTeacherError(null);
+    setOpenEditTeacher(true);
+  };
+
+  const closeTeacherEditForm = () => {
+    if (editTeacherSaving) return;
+    setOpenEditTeacher(false);
+    setEditTeacherId(null);
+    setEditTeacherName("");
+    setEditTeacherEmail("");
+    setEditTeacherSendSetup(false);
+    setEditTeacherError(null);
+  };
+
   const deleteTeacherById = async (teacherId: string) => {
     const res = await fetch(`/api/teachers/${teacherId}`, { method: "DELETE" });
     if (!res.ok) {
@@ -179,9 +235,7 @@ export default function TeachersPage() {
 
     try {
       await deleteTeacherById(teacher.id);
-      const tRes = await fetch("/api/teachers", { cache: "no-store" });
-      if (!tRes.ok) throw new Error(await tRes.text());
-      setTeachers((await tRes.json()) as Teacher[]);
+      await refreshTeachers();
       if (selectedTeacherIds.includes(teacher.id)) {
         setSelectedTeacherIds((prev) => prev.filter((id) => id !== teacher.id));
       }
@@ -200,9 +254,7 @@ export default function TeachersPage() {
     setBulkTeacherSuccess(null);
     try {
       await Promise.all(selectedTeacherIds.map((teacherId) => deleteTeacherById(teacherId)));
-      const tRes = await fetch("/api/teachers", { cache: "no-store" });
-      if (!tRes.ok) throw new Error(await tRes.text());
-      setTeachers((await tRes.json()) as Teacher[]);
+      await refreshTeachers();
       setSelectedTeacherIds([]);
       setBulkTeacherSuccess(`Deleted ${count} teacher${count === 1 ? "" : "s"}.`);
     } catch (err) {
@@ -212,9 +264,85 @@ export default function TeachersPage() {
     }
   };
 
+  const saveTeacherCreateForm = async () => {
+    try {
+      setTeacherSaving(true);
+      setTeacherError(null);
+      setTeacherSuccess(null);
+      const res = await fetch("/api/teachers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newTeacherName.trim(),
+          email: newTeacherEmail.trim(),
+          ...(newTeacherPassword.trim().length ? { password: newTeacherPassword.trim() } : {}),
+          sendPasswordSetup: sendTeacherSetupLink,
+        }),
+      });
+      const data = (await res.json()) as TeacherMutationResponse;
+      if (!res.ok) throw new Error(data.error || "Failed to create teacher");
+      await refreshTeachers();
+      resetTeacherCreateForm();
+      setOpenTeacherModal(false);
+      if (data.setup_email_sent) {
+        setTeacherSuccess("Teacher created and password setup email sent.");
+      } else if (sendTeacherSetupLink) {
+        setTeacherSuccess(
+          `Teacher created. Setup email could not be sent${data.setup_email_error ? `: ${data.setup_email_error}` : "."}`
+        );
+      } else {
+        setTeacherSuccess("Teacher created.");
+      }
+    } catch (err) {
+      setTeacherError(err instanceof Error ? err.message : "Failed to create teacher");
+    } finally {
+      setTeacherSaving(false);
+    }
+  };
+
+  const saveTeacherEditForm = async () => {
+    if (!editTeacherId) return;
+    try {
+      setEditTeacherSaving(true);
+      setEditTeacherError(null);
+      setTeacherSuccess(null);
+      const res = await fetch(`/api/teachers/${editTeacherId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editTeacherName.trim(),
+          email: editTeacherEmail.trim(),
+          sendPasswordSetup: editTeacherSendSetup,
+        }),
+      });
+      const data = (await res.json()) as TeacherMutationResponse;
+      if (!res.ok) throw new Error(data.error || "Failed to update teacher");
+      await refreshTeachers();
+      closeTeacherEditForm();
+      if (data.setup_email_sent) {
+        setTeacherSuccess("Teacher updated and password setup email sent.");
+      } else if (editTeacherSendSetup) {
+        setTeacherSuccess(
+          `Teacher updated. Setup email could not be sent${data.setup_email_error ? `: ${data.setup_email_error}` : "."}`
+        );
+      } else {
+        setTeacherSuccess("Teacher updated.");
+      }
+    } catch (err) {
+      setEditTeacherError(err instanceof Error ? err.message : "Failed to update teacher");
+    } finally {
+      setEditTeacherSaving(false);
+    }
+  };
+
   const openTeacherProfile = (teacherId: string) => {
     router.push(`/dashboard/teachers/${teacherId}`);
   };
+
+  const editingTeacher = React.useMemo(
+    () => teachers.find((teacher) => teacher.id === editTeacherId) ?? null,
+    [editTeacherId, teachers]
+  );
 
   return (
     <div className="space-y-4">
@@ -259,10 +387,7 @@ export default function TeachersPage() {
               Add Course
             </Button>
             <Button
-              onClick={() => {
-                setTeacherError(null);
-                setOpenTeacherModal(true);
-              }}
+              onClick={openTeacherCreateForm}
             >
               <Plus className="h-4 w-4" />
               Add Teacher
@@ -332,6 +457,11 @@ export default function TeachersPage() {
               {bulkTeacherSuccess}
             </div>
           )}
+          {teacherSuccess && (
+            <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              {teacherSuccess}
+            </div>
+          )}
           {!loading && !error && viewMode === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {paginatedTeachers.map((t) => (
@@ -371,13 +501,7 @@ export default function TeachersPage() {
                     <Button
                       size="icon"
                       variant="outline"
-                      onClick={() => {
-                        setEditTeacherId(t.id);
-                        setEditTeacherName(t.name);
-                        setEditTeacherEmail(t.email);
-                        setEditTeacherSendSetup(false);
-                        setOpenEditTeacher(true);
-                      }}
+                      onClick={() => openTeacherEditForm(t)}
                       title="Edit teacher"
                       aria-label="Edit teacher"
                     >
@@ -458,13 +582,7 @@ export default function TeachersPage() {
                         <Button
                           size="icon"
                           variant="outline"
-                          onClick={() => {
-                            setEditTeacherId(t.id);
-                            setEditTeacherName(t.name);
-                            setEditTeacherEmail(t.email);
-                            setEditTeacherSendSetup(false);
-                            setOpenEditTeacher(true);
-                          }}
+                          onClick={() => openTeacherEditForm(t)}
                           title="Edit teacher"
                           aria-label="Edit teacher"
                         >
@@ -722,216 +840,236 @@ export default function TeachersPage() {
         </div>
       )}
 
-      {openTeacherModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenTeacherModal(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
+      <CreationDialog
+        open={openTeacherModal}
+        onOpenChange={(open) => {
+          if (!open) closeTeacherCreateForm();
+        }}
+        icon={UserPlus}
+        eyebrow="Teachers"
+        title="Add Teacher"
+        description="Create a new instructor account, choose how access is delivered, and keep the directory ready from the start."
+        stats={[
+          {
+            label: "Teachers",
+            value: String(teachers.length),
+            hint: "Current team size",
+          },
+          {
+            label: "Invite mode",
+            value: sendTeacherSetupLink ? "Setup email" : "Password only",
+            hint: sendTeacherSetupLink
+              ? "Teacher gets a setup link by email"
+              : "You will set the password now",
+          },
+        ]}
+        footer={
+          <>
+            <Button variant="outline" onClick={closeTeacherCreateForm} disabled={teacherSaving}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                teacherSaving ||
+                !newTeacherName.trim() ||
+                !newTeacherEmail.trim() ||
+                (newTeacherPassword.trim().length > 0 && newTeacherPassword.trim().length < 8) ||
+                (!sendTeacherSetupLink && newTeacherPassword.trim().length === 0)
+              }
+              onClick={saveTeacherCreateForm}
+            >
+              {teacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Teacher"}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <CreationSection
+            eyebrow="Identity"
+            title="Teacher profile"
+            description="These details will appear in the directory and on the teacher profile page."
           >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">Add Teacher</h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenTeacherModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-2">
-              <Input
-                placeholder="Full name"
-                value={newTeacherName}
-                onChange={(e) => setNewTeacherName(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                placeholder="Email"
-                value={newTeacherEmail}
-                onChange={(e) => setNewTeacherEmail(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                type="password"
-                placeholder="Optional password (min 8 chars)"
-                value={newTeacherPassword}
-                onChange={(e) => setNewTeacherPassword(e.target.value)}
-                className="h-9"
-              />
-              <label className="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={sendTeacherSetupLink}
-                  onChange={(e) => setSendTeacherSetupLink(e.target.checked)}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-create-name">Full name</Label>
+                <Input
+                  id="teacher-create-name"
+                  placeholder="Amina Johnson"
+                  value={newTeacherName}
+                  onChange={(e) => setNewTeacherName(e.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="name"
                 />
-                <span>Send password setup email to teacher</span>
-              </label>
-              <p className="text-xs text-slate-500">
-                Leave password empty to let the teacher create their password from email.
-              </p>
-              {teacherError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {teacherError}
-                </div>
-              )}
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-create-email">Email</Label>
+                <Input
+                  id="teacher-create-email"
+                  type="email"
+                  placeholder="amina@example.com"
+                  value={newTeacherEmail}
+                  onChange={(e) => setNewTeacherEmail(e.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="email"
+                />
+              </div>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenTeacherModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={
-                  teacherSaving ||
-                  !newTeacherName.trim() ||
-                  !newTeacherEmail.trim() ||
-                  (newTeacherPassword.trim().length > 0 && newTeacherPassword.trim().length < 8) ||
-                  (!sendTeacherSetupLink && newTeacherPassword.trim().length === 0)
-                }
-                onClick={async () => {
-                  try {
-                    setTeacherSaving(true);
-                    setTeacherError(null);
-                    const res = await fetch("/api/teachers", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        name: newTeacherName.trim(),
-                        email: newTeacherEmail.trim(),
-                        ...(newTeacherPassword.trim().length ? { password: newTeacherPassword.trim() } : {}),
-                        sendPasswordSetup: sendTeacherSetupLink,
-                      }),
-                    });
-                    const data = (await res.json()) as TeacherMutationResponse;
-                    if (!res.ok) throw new Error(data.error || "Failed to create teacher");
-                    setNewTeacherName("");
-                    setNewTeacherEmail("");
-                    setNewTeacherPassword("");
-                    setSendTeacherSetupLink(true);
-                    setOpenTeacherModal(false);
-                    if (data.setup_email_sent) {
-                      alert("Teacher created and password setup email sent.");
-                    } else if (sendTeacherSetupLink) {
-                      alert(
-                        `Teacher created. Setup email could not be sent${
-                          data.setup_email_error ? `: ${data.setup_email_error}` : "."
-                        }`
-                      );
-                    }
-                    const tRes = await fetch("/api/teachers", { cache: "no-store" });
-                    if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
-                  } catch (err) {
-                    setTeacherError(err instanceof Error ? err.message : "Failed to create teacher");
-                  } finally {
-                    setTeacherSaving(false);
-                  }
-                }}
-              >
-                {teacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          </CreationSection>
 
-      {openEditTeacher && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditTeacher(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
+          <CreationSection
+            eyebrow="Access"
+            title="Login setup"
+            description="Choose whether the teacher receives a setup link or a temporary password."
           >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">Edit Teacher</h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenEditTeacher(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-2">
-              <Input
-                placeholder="Full name"
-                value={editTeacherName}
-                onChange={(e) => setEditTeacherName(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                placeholder="Email"
-                value={editTeacherEmail}
-                onChange={(e) => setEditTeacherEmail(e.target.value)}
-                className="h-9"
-              />
-              <label className="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={editTeacherSendSetup}
-                  onChange={(e) => setEditTeacherSendSetup(e.target.checked)}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="teacher-create-password">Temporary password</Label>
+                <Input
+                  id="teacher-create-password"
+                  type="password"
+                  placeholder="Optional password (min 8 chars)"
+                  value={newTeacherPassword}
+                  onChange={(e) => setNewTeacherPassword(e.target.value)}
+                  className="mt-2 h-11 bg-white"
                 />
-                <span>Send password setup email after save</span>
-              </label>
-              {editTeacherError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {editTeacherError}
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="teacher-create-setup"
+                    checked={sendTeacherSetupLink}
+                    onCheckedChange={(checked) => setSendTeacherSetupLink(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="teacher-create-setup" className="text-sm font-medium text-slate-900">
+                      Send password setup email
+                    </Label>
+                    <p className="text-xs leading-5 text-slate-500">
+                      Recommended if you want the teacher to finish signing in from email.
+                    </p>
+                  </div>
                 </div>
-              )}
+              </div>
+              <p className="text-xs leading-5 text-slate-500">
+                Leave the password blank if you want the setup email to handle access.
+              </p>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenEditTeacher(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={
-                  !editTeacherId ||
-                  editTeacherSaving ||
-                  !editTeacherName.trim() ||
-                  !editTeacherEmail.trim()
-                }
-                onClick={async () => {
-                  if (!editTeacherId) return;
-                  try {
-                    setEditTeacherSaving(true);
-                    setEditTeacherError(null);
-                    const res = await fetch(`/api/teachers/${editTeacherId}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        name: editTeacherName.trim(),
-                        email: editTeacherEmail.trim(),
-                        sendPasswordSetup: editTeacherSendSetup,
-                      }),
-                    });
-                    const data = (await res.json()) as TeacherMutationResponse;
-                    if (!res.ok) throw new Error(data.error || "Failed to update teacher");
-                    setOpenEditTeacher(false);
-                    if (data.setup_email_sent) {
-                      alert("Teacher updated and password setup email sent.");
-                    } else if (editTeacherSendSetup) {
-                      alert(
-                        `Teacher updated. Setup email could not be sent${
-                          data.setup_email_error ? `: ${data.setup_email_error}` : "."
-                        }`
-                      );
-                    }
-                    const tRes = await fetch("/api/teachers", { cache: "no-store" });
-                    if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
-                  } catch (err) {
-                    setEditTeacherError(err instanceof Error ? err.message : "Failed to update teacher");
-                  } finally {
-                    setEditTeacherSaving(false);
-                  }
-                }}
-              >
-                {editTeacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-              </Button>
+          </CreationSection>
+
+          {teacherError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {teacherError}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </CreationDialog>
+
+      <CreationDialog
+        open={openEditTeacher}
+        onOpenChange={(open) => {
+          if (!open) closeTeacherEditForm();
+        }}
+        icon={Pencil}
+        eyebrow="Teacher profile"
+        title="Edit Teacher"
+        description="Update the teacher's name or email and optionally resend a setup link."
+        stats={[
+          {
+            label: "Joined",
+            value: formatDate(editingTeacher?.created_at),
+            hint: "Original profile record",
+          },
+          {
+            label: "Email",
+            value: editTeacherEmail || "Not set",
+            hint: "Login address",
+          },
+        ]}
+        footer={
+          <>
+            <Button variant="outline" onClick={closeTeacherEditForm} disabled={editTeacherSaving}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !editTeacherId ||
+                editTeacherSaving ||
+                !editTeacherName.trim() ||
+                !editTeacherEmail.trim()
+              }
+              onClick={saveTeacherEditForm}
+            >
+              {editTeacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <CreationSection
+            eyebrow="Identity"
+            title="Profile details"
+            description="These values are synced to the teacher account and the auth profile."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-name">Full name</Label>
+                <Input
+                  id="teacher-edit-name"
+                  placeholder="Amina Johnson"
+                  value={editTeacherName}
+                  onChange={(e) => setEditTeacherName(e.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="name"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-email">Email</Label>
+                <Input
+                  id="teacher-edit-email"
+                  type="email"
+                  placeholder="amina@example.com"
+                  value={editTeacherEmail}
+                  onChange={(e) => setEditTeacherEmail(e.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+          </CreationSection>
+
+          <CreationSection
+            eyebrow="Access"
+            title="Password setup"
+            description="You can resend the setup email after saving if the teacher needs a fresh invite."
+          >
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="teacher-edit-setup"
+                  checked={editTeacherSendSetup}
+                  onCheckedChange={(checked) => setEditTeacherSendSetup(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="teacher-edit-setup" className="text-sm font-medium text-slate-900">
+                    Send password setup email after save
+                  </Label>
+                  <p className="text-xs leading-5 text-slate-500">
+                    Use this when the teacher needs a new login link after you change their profile.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CreationSection>
+
+          {editTeacherError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {editTeacherError}
+            </div>
+          )}
+        </div>
+      </CreationDialog>
     </div>
   );
 }
