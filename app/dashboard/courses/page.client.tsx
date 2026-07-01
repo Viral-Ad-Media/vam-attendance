@@ -186,6 +186,9 @@ export default function CoursesPage() {
   );
   const cadenceCount = editMeetingDays.length;
   const cadenceLabel = cadenceCount ? `${cadenceCount} sessions / week` : "Flexible cadence";
+  const durationWeeks = Number(editDuration);
+  const plannedWeeks = Number.isFinite(durationWeeks) && durationWeeks > 0 ? durationWeeks : 1;
+  const plannedSessionCount = Math.max(1, plannedWeeks * (cadenceCount || 1));
   const timelineLabel = editStartsAt
     ? new Date(editStartsAt).toLocaleDateString(undefined, {
         month: "short",
@@ -674,7 +677,7 @@ export default function CoursesPage() {
             <CreationSection
               eyebrow="Delivery"
               title="Plan the course cadence"
-              description="Set the timeline and operating rhythm used when new sessions are created."
+              description="Set the timeline and operating rhythm used when new sessions are created or synced on save."
             >
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -723,7 +726,7 @@ export default function CoursesPage() {
                     })}
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    If you keep this flexible, the system falls back to a simple generated schedule.
+                    Saving will add or trim generated sessions to match the updated cadence.
                   </p>
                 </div>
                 <div>
@@ -824,6 +827,7 @@ export default function CoursesPage() {
                 <div className="mt-3 space-y-2 text-xs text-slate-500">
                   <p>Course type: {editType.trim() || "Not specified"}</p>
                   <p>Duration: {editDuration || "Not set"} week(s)</p>
+                  <p>Planned sessions: {plannedSessionCount}</p>
                   <p>Capacity: {editMaxStudents || "Open"} students</p>
                 </div>
               </div>

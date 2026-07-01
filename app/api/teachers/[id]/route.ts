@@ -9,6 +9,7 @@ import { ApiError } from "@/lib/api/errors";
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
+  password: z.string().min(8).optional(),
   user_id: z.string().uuid().optional(),
   sendPasswordSetup: z.boolean().optional(),
 });
@@ -72,12 +73,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { supabase, session, orgId } = await getRouteContext();
     const service = getServiceClient();
 
-    const { sendPasswordSetup, ...teacherUpdates } = payload;
+    const { sendPasswordSetup, password, ...teacherUpdates } = payload;
     const normalizedUpdates = {
       ...teacherUpdates,
       name: teacherUpdates.name?.trim(),
       email: teacherUpdates.email?.trim().toLowerCase(),
     };
+    const shouldSendPasswordSetup = Boolean(sendPasswordSetup && !password);
+
+    const { data: teacherAccount, error: teacherLookupError } = await supabase
+      .from("teachers")
+      .select("user_id")
+      .eq("org_id", orgId)
+      .eq("id", id)
+      .single();
+    if (teacherLookupError) throw teacherLookupError;
+    if (password && !teacherAccount?.user_id) {
+      return NextResponse.json(
+        { error: "Teacher account is missing a linked login, so the password cannot be changed." },
+        { status: 400 }
+      );
+    }
 
     const { data, error } = await supabase
       .from("teachers")
@@ -90,8 +106,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (error) throw error;
 
     if (data.user_id) {
-      const authUpdate: { email?: string } = {};
+      const authUpdate: { email?: string; password?: string } = {};
       if (normalizedUpdates.email) authUpdate.email = normalizedUpdates.email;
+      if (password) authUpdate.password = password;
 
       if (Object.keys(authUpdate).length) {
         const { error: authUpdateError } = await service.auth.admin.updateUserById(data.user_id, authUpdate);
@@ -123,7 +140,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     let setupEmailSent = false;
     let setupEmailError: string | null = null;
-    if (sendPasswordSetup) {
+    if (shouldSendPasswordSetup) {
       try {
         await sendTeacherSetupEmail({
           service,
@@ -140,11 +157,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     await logAudit(supabase, orgId, session.user.id, "update", "teacher", id, {
       ...normalizedUpdates,
+      password_updated: Boolean(password),
       setup_email_sent: setupEmailSent,
       setup_email_error: setupEmailError,
     });
     return NextResponse.json({
       ...data,
+      password_updated: Boolean(password),
       setup_email_sent: setupEmailSent,
       setup_email_error: setupEmailError,
     });

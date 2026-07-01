@@ -5,14 +5,32 @@ import * as React from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, AlertCircle, Loader } from "lucide-react";
+import { Calendar, AlertCircle, Loader, AlertTriangle, TrendingDown } from "lucide-react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+type AtRiskStudent = {
+  id: string;
+  name: string;
+  email: string;
+  program: string;
+  class_name: string;
+  attendanceRate: number;
+  totalSessions: number;
+};
+
 export default function OverviewPage() {
   const { stats, sessions } = useDashboardData();
   const [nowMs] = React.useState(() => Date.now());
+  const [atRisk, setAtRisk] = React.useState<AtRiskStudent[]>([]);
+
+  React.useEffect(() => {
+    fetch("/api/students/at-risk?threshold=75", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setAtRisk(data as AtRiskStudent[]))
+      .catch(() => {});
+  }, []);
 
   const healthLabel =
     stats.avgAttendanceRate >= 90
@@ -215,6 +233,46 @@ export default function OverviewPage() {
               </CardContent>
             </Card>
           </div>
+
+          {atRisk.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <CardTitle className="text-sm font-semibold text-amber-900">
+                      At-risk students — {atRisk.length} below 75%
+                    </CardTitle>
+                    <p className="text-xs text-amber-700">These students need follow-up</p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {atRisk.slice(0, 5).map((s) => (
+                    <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{s.name}</p>
+                        <p className="text-xs text-slate-500 truncate">{s.program || s.class_name || s.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                          <TrendingDown className="h-3 w-3" />
+                          {s.attendanceRate}%
+                        </span>
+                        <span className="text-[11px] text-slate-500">{s.totalSessions} sessions</span>
+                      </div>
+                    </div>
+                  ))}
+                  {atRisk.length > 5 && (
+                    <Link href="/dashboard/students" className="block text-center text-xs font-semibold text-amber-700 hover:underline">
+                      +{atRisk.length - 5} more at-risk students →
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Card>

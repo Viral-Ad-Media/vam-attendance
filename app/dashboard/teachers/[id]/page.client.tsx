@@ -143,6 +143,8 @@ export default function TeacherProfilePageClient() {
   const [editTeacherName, setEditTeacherName] = React.useState("");
   const [editTeacherEmail, setEditTeacherEmail] = React.useState("");
   const [editTeacherSendSetup, setEditTeacherSendSetup] = React.useState(false);
+  const [editTeacherPassword, setEditTeacherPassword] = React.useState("");
+  const [editTeacherPasswordConfirm, setEditTeacherPasswordConfirm] = React.useState("");
   const [editTeacherSaving, setEditTeacherSaving] = React.useState(false);
   const [editTeacherError, setEditTeacherError] = React.useState<string | null>(null);
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
@@ -302,12 +304,22 @@ export default function TeacherProfilePageClient() {
     const start = (coursePage - 1) * coursePageSize;
     return courseSummaries.slice(start, start + coursePageSize);
   }, [courseSummaries, coursePage, coursePageSize]);
+  const editTeacherPasswordRequested =
+    editTeacherPassword.trim().length > 0 || editTeacherPasswordConfirm.trim().length > 0;
+  const editTeacherPasswordError = React.useMemo(() => {
+    if (!editTeacherPasswordRequested) return null;
+    if (editTeacherPassword.trim().length < 8) return "Password must be at least 8 characters.";
+    if (editTeacherPassword !== editTeacherPasswordConfirm) return "Passwords do not match.";
+    return null;
+  }, [editTeacherPassword, editTeacherPasswordConfirm, editTeacherPasswordRequested]);
 
   const openTeacherEditForm = () => {
     if (!teacher) return;
     setEditTeacherName(teacher.name);
     setEditTeacherEmail(teacher.email);
     setEditTeacherSendSetup(false);
+    setEditTeacherPassword("");
+    setEditTeacherPasswordConfirm("");
     setEditTeacherError(null);
     setSaveMessage(null);
     setOpenEditTeacher(true);
@@ -319,23 +331,31 @@ export default function TeacherProfilePageClient() {
     setEditTeacherName("");
     setEditTeacherEmail("");
     setEditTeacherSendSetup(false);
+    setEditTeacherPassword("");
+    setEditTeacherPasswordConfirm("");
     setEditTeacherError(null);
   };
 
   const saveTeacherProfile = async () => {
     if (!teacher) return;
+    if (editTeacherPasswordError) {
+      setEditTeacherError(editTeacherPasswordError);
+      return;
+    }
 
     try {
       setEditTeacherSaving(true);
       setEditTeacherError(null);
       setSaveMessage(null);
+      const password = editTeacherPassword.trim();
       const response = await fetch(`/api/teachers/${teacher.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editTeacherName.trim(),
           email: editTeacherEmail.trim(),
-          sendPasswordSetup: editTeacherSendSetup,
+          ...(password ? { password } : {}),
+          sendPasswordSetup: password ? false : editTeacherSendSetup,
         }),
       });
       const data = (await response.json()) as Teacher & TeacherMutationResponse;
@@ -345,7 +365,11 @@ export default function TeacherProfilePageClient() {
       setEditTeacherName("");
       setEditTeacherEmail("");
       setEditTeacherSendSetup(false);
-      if (data.setup_email_sent) {
+      setEditTeacherPassword("");
+      setEditTeacherPasswordConfirm("");
+      if (password) {
+        setSaveMessage("Teacher profile saved and password changed.");
+      } else if (data.setup_email_sent) {
         setSaveMessage("Teacher profile saved and password setup email sent.");
       } else if (editTeacherSendSetup) {
         setSaveMessage(
@@ -590,7 +614,8 @@ export default function TeacherProfilePageClient() {
               disabled={
                 editTeacherSaving ||
                 !editTeacherName.trim() ||
-                !editTeacherEmail.trim()
+                !editTeacherEmail.trim() ||
+                Boolean(editTeacherPasswordError)
               }
             >
               {editTeacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -633,6 +658,42 @@ export default function TeacherProfilePageClient() {
           </CreationSection>
 
           <CreationSection
+            eyebrow="Password"
+            title="Set or change password"
+            description="Leave both fields blank to keep the current password."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-password">New password</Label>
+                <Input
+                  id="teacher-edit-password"
+                  type="password"
+                  placeholder="Optional new password"
+                  value={editTeacherPassword}
+                  onChange={(event) => setEditTeacherPassword(event.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-password-confirm">Confirm new password</Label>
+                <Input
+                  id="teacher-edit-password-confirm"
+                  type="password"
+                  placeholder="Repeat the new password"
+                  value={editTeacherPasswordConfirm}
+                  onChange={(event) => setEditTeacherPasswordConfirm(event.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            {editTeacherPasswordError && (
+              <p className="mt-3 text-xs font-medium text-red-600">{editTeacherPasswordError}</p>
+            )}
+          </CreationSection>
+
+          <CreationSection
             eyebrow="Access"
             title="Password setup"
             description="You can resend the setup email after saving if the teacher needs a fresh invite."
@@ -641,7 +702,8 @@ export default function TeacherProfilePageClient() {
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="teacher-edit-setup"
-                  checked={editTeacherSendSetup}
+                  checked={editTeacherPasswordRequested ? false : editTeacherSendSetup}
+                  disabled={editTeacherPasswordRequested}
                   onCheckedChange={(checked) => setEditTeacherSendSetup(checked === true)}
                   className="mt-0.5"
                 />
@@ -651,6 +713,7 @@ export default function TeacherProfilePageClient() {
                   </Label>
                   <p className="text-xs leading-5 text-slate-500">
                     Use this when the teacher needs a new login link after you change their profile.
+                    {editTeacherPasswordRequested ? " Disabled while a new password is being set." : ""}
                   </p>
                 </div>
               </div>

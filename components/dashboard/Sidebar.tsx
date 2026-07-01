@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CommandPalette } from "./CommandPalette";
 
 type NavChild = { href: string; label: string };
 type NavItem = {
@@ -290,6 +291,12 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
           })}
         </ul>
       </nav>
+
+        {!collapsed && (
+          <div className="mb-2">
+            <CommandPalette />
+          </div>
+        )}
 
         <div
           className={cn(

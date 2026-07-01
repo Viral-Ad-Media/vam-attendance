@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, ClipboardCheck } from "lucide-react";
+import Link from "next/link";
 
 type Session = {
   id: string;
@@ -240,9 +241,32 @@ export default function SessionsPage() {
     return days;
   }, [calendarMonth]);
 
+  const todaySessions = React.useMemo(() => {
+    const todayStr = new Date().toDateString();
+    return sessions.filter((s) => new Date(s.starts_at).toDateString() === todayStr);
+  }, [sessions]);
+
   return (
     <div className="space-y-4">
       <TopBar title="Sessions" subtitle="All scheduled sessions" showAccountInTitle={false} />
+
+      {todaySessions.length > 0 && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-sm font-semibold text-emerald-900 mb-2">Today&apos;s sessions — mark attendance</p>
+          <div className="flex flex-wrap gap-2">
+            {todaySessions.map((s) => (
+              <Link
+                key={s.id}
+                href={`/dashboard/sessions/${s.id}/attendance`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-50 transition"
+              >
+                <ClipboardCheck className="h-3.5 w-3.5" />
+                {s.title ?? "Session"} · {new Date(s.starts_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex items-center justify-between pb-2">
@@ -351,12 +375,17 @@ export default function SessionsPage() {
                         </td>
                         <td className="py-2 pr-0 text-right">
                           <div className="inline-flex gap-2">
+                            <Button asChild size="sm" variant="outline" className="gap-1 text-primary border-primary/30 hover:bg-primary/5">
+                              <Link href={`/dashboard/sessions/${s.id}/attendance`}>
+                                <ClipboardCheck className="h-3.5 w-3.5" /> Mark
+                              </Link>
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => openEditSession(s)}
                             >
-                              Edit
+                              <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
                             </Button>
                             <Button
                               size="sm"

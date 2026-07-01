@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GraduationCap, Mail, Loader2, Pencil, Trash2, Plus, X } from "lucide-react";
+import { GraduationCap, Mail, Loader2, Pencil, Trash2, Plus, X, AlertTriangle } from "lucide-react";
 
 type Student = {
   id: string;
@@ -118,6 +118,18 @@ export default function StudentsPage() {
   >([]);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [detailError, setDetailError] = React.useState<string | null>(null);
+  const [atRiskIds, setAtRiskIds] = React.useState<Set<string>>(new Set());
+  const [atRiskRates, setAtRiskRates] = React.useState<Map<string, number>>(new Map());
+
+  React.useEffect(() => {
+    fetch("/api/students/at-risk?threshold=75", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Array<{ id: string; attendanceRate: number }>) => {
+        setAtRiskIds(new Set(data.map((d) => d.id)));
+        setAtRiskRates(new Map(data.map((d) => [d.id, d.attendanceRate])));
+      })
+      .catch(() => {});
+  }, []);
 
   React.useEffect(() => {
     const load = async () => {
@@ -735,7 +747,17 @@ export default function StudentsPage() {
                             onCheckedChange={(checked) => toggleStudentSelection(s.id, checked)}
                           />
                         </td>
-                        <td className="py-2 pr-3 font-medium text-slate-900">{s.name}</td>
+                        <td className="py-2 pr-3 font-medium text-slate-900">
+                          <div className="flex items-center gap-2">
+                            {s.name}
+                            {atRiskIds.has(s.id) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700" title={`Attendance: ${atRiskRates.get(s.id)}%`}>
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                {atRiskRates.get(s.id)}%
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-2 pr-3">
                           <div className="flex items-center gap-2">
                             <Mail className="h-4 w-4 text-slate-400" />

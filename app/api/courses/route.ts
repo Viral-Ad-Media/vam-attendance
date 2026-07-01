@@ -4,6 +4,7 @@ import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
+import { buildCourseSessionRows, seedAttendanceForSessions } from "@/lib/api/course-sessions";
 
 const courseSchema = z.object({
   title: z.string().min(1),
@@ -63,90 +64,34 @@ export async function POST(request: Request) {
       .single();
     if (error) throw error;
 
-    // Auto-create sessions using meeting days (or evenly spaced fallback)
-    let startDate = new Date(payload.starts_at ?? new Date().toISOString());
-    if (Number.isNaN(startDate.getTime())) startDate = new Date();
+    const sessionRows = buildCourseSessionRows({
+      courseId: data.id,
+      orgId,
+      title: payload.title,
+      description: payload.description ?? null,
+      course_type: payload.course_type ?? null,
+      lead_teacher_id: payload.lead_teacher_id ?? null,
+      duration_weeks: coursePayload.duration_weeks ?? null,
+      sessions_per_week: coursePayload.sessions_per_week ?? null,
+      meeting_days,
+      starts_at: payload.starts_at ?? null,
+    });
 
-    const meetingDays = meeting_days && meeting_days.length ? [...meeting_days].sort() : null;
-    const sessionsPerWeek =
-      (meetingDays?.length || 0) ||
-      (coursePayload.sessions_per_week && coursePayload.sessions_per_week > 0
-        ? coursePayload.sessions_per_week
-        : 1);
-    const totalWeeks =
-      coursePayload.duration_weeks && coursePayload.duration_weeks > 0
-        ? coursePayload.duration_weeks
-        : 1;
-    const totalSessions = Math.max(1, sessionsPerWeek * totalWeeks);
-    const maxSessions = Math.min(totalSessions, 200); // safety cap
-
-    const buildTimestampForDay = (dayNumber: number, weekOffset: number) => {
-      const base = new Date(startDate);
-      const dayDiff = (dayNumber - base.getDay() + 7) % 7 + weekOffset * 7;
-      base.setDate(base.getDate() + dayDiff);
-      return base.toISOString();
-    };
-
-    const sessionRows =
-      meetingDays && meetingDays.length
-        ? Array.from({ length: totalWeeks }).flatMap((_, weekIdx) =>
-            meetingDays.map((d, i) => {
-              const ts = buildTimestampForDay(d, weekIdx);
-              const idx = weekIdx * meetingDays.length + i;
-              const ordinal = totalSessions > 1 ? ` • Session ${idx + 1}` : "";
-              return {
-                org_id: orgId,
-                course_id: data.id,
-                teacher_id: payload.lead_teacher_id ?? null,
-                title: payload.title ? `${payload.title}${ordinal}` : `Session ${idx + 1}`,
-                starts_at: ts,
-                class_name: payload.course_type ?? null,
-                description: payload.description ?? null,
-              };
-            })
-          )
-        : Array.from({ length: maxSessions }).map((_, idx) => {
-            const intervalMs = (7 / sessionsPerWeek) * 24 * 60 * 60 * 1000;
-            const ts = new Date(startDate.getTime() + idx * intervalMs).toISOString();
-            const ordinal = maxSessions > 1 ? ` • Session ${idx + 1}` : "";
-            return {
-              org_id: orgId,
-              course_id: data.id,
-              teacher_id: payload.lead_teacher_id ?? null,
-              title: payload.title ? `${payload.title}${ordinal}` : `Session ${idx + 1}`,
-              starts_at: ts,
-              class_name: payload.course_type ?? null,
-              description: payload.description ?? null,
-            };
-          });
-
-    const { data: insertedSessions, error: sessionError } = await supabase
-      .from("sessions")
-      .insert(sessionRows)
-      .select("id");
+    const { data: insertedSessions, error: sessionError } = await supabase.from("sessions").insert(sessionRows).select("id");
     if (sessionError) throw sessionError;
-    if (sessionRows.length && insertedSessions) {
+    if (insertedSessions?.length) {
       const { data: enrollments, error: enrollErr } = await supabase
         .from("enrollments")
         .select("student_id")
         .eq("org_id", orgId)
         .eq("course_id", data.id);
       if (enrollErr) throw enrollErr;
-      if (enrollments?.length) {
-        const attendanceSeed = insertedSessions.flatMap((sess) =>
-          enrollments.map((en) => ({
-            org_id: orgId,
-            session_id: sess.id,
-            student_id: en.student_id,
-            status: "absent" as const,
-          }))
-        );
-        if (attendanceSeed.length) {
-          await supabase.from("attendance").upsert(attendanceSeed, {
-            onConflict: "org_id,session_id,student_id",
-          });
-        }
-      }
+      await seedAttendanceForSessions(
+        supabase,
+        orgId,
+        insertedSessions.map((session) => session.id),
+        enrollments?.map((enrollment) => enrollment.student_id) ?? []
+      );
     }
 
     await logAudit(supabase, orgId, session.user.id, "create", "course", data.id, { title: data.title });

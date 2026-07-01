@@ -96,9 +96,10 @@ export async function PATCH(request: NextRequest) {
 
     const { data, error } = await supabase
       .from("users")
-      .update(payload)
-      .eq("org_id", orgId)
-      .eq("id", session.user.id)
+      .upsert(
+        { id: session.user.id, org_id: orgId, email: session.user.email ?? "", ...payload },
+        { onConflict: "id" }
+      )
       .select("id, org_id, email, full_name, phone, location, bio, avatar_url, created_at, updated_at")
       .single();
 

@@ -4,6 +4,7 @@ import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
+import { seedAttendanceForSessions } from "@/lib/api/course-sessions";
 
 const enrollmentSchema = z.object({
   student_id: z.string().uuid(),
@@ -63,6 +64,24 @@ export async function POST(request: Request) {
       .upsert(rows, { onConflict: "org_id,student_id,course_id" })
       .select();
     if (error) throw error;
+
+    const courseIds = Array.from(new Set(rows.map((row) => row.course_id)));
+    for (const courseId of courseIds) {
+      const { data: sessions, error: sessionErr } = await supabase
+        .from("sessions")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq("course_id", courseId);
+      if (sessionErr) throw sessionErr;
+
+      const studentIds = rows.filter((row) => row.course_id === courseId).map((row) => row.student_id);
+      await seedAttendanceForSessions(
+        supabase,
+        orgId,
+        sessions?.map((session) => session.id) ?? [],
+        studentIds
+      );
+    }
 
     await logAudit(supabase, orgId, session.user.id, "create", "enrollment", data?.[0]?.id, {
       count: rows.length,

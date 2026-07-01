@@ -82,6 +82,8 @@ export default function TeachersPage() {
   const [editTeacherName, setEditTeacherName] = React.useState("");
   const [editTeacherEmail, setEditTeacherEmail] = React.useState("");
   const [editTeacherSendSetup, setEditTeacherSendSetup] = React.useState(false);
+  const [editTeacherPassword, setEditTeacherPassword] = React.useState("");
+  const [editTeacherPasswordConfirm, setEditTeacherPasswordConfirm] = React.useState("");
   const [editTeacherSaving, setEditTeacherSaving] = React.useState(false);
   const [editTeacherError, setEditTeacherError] = React.useState<string | null>(null);
 
@@ -141,6 +143,13 @@ export default function TeachersPage() {
   ).length;
   const allVisibleTeachersSelected =
     visibleTeacherIds.length > 0 && selectedVisibleTeacherCount === visibleTeacherIds.length;
+  const editTeacherPasswordRequested = editTeacherPassword.trim().length > 0 || editTeacherPasswordConfirm.trim().length > 0;
+  const editTeacherPasswordError = React.useMemo(() => {
+    if (!editTeacherPasswordRequested) return null;
+    if (editTeacherPassword.trim().length < 8) return "Password must be at least 8 characters.";
+    if (editTeacherPassword !== editTeacherPasswordConfirm) return "Passwords do not match.";
+    return null;
+  }, [editTeacherPassword, editTeacherPasswordConfirm, editTeacherPasswordRequested]);
 
   React.useEffect(() => {
     const currentIds = new Set(teachers.map((teacher) => teacher.id));
@@ -203,6 +212,8 @@ export default function TeachersPage() {
     setEditTeacherName(teacher.name);
     setEditTeacherEmail(teacher.email);
     setEditTeacherSendSetup(false);
+    setEditTeacherPassword("");
+    setEditTeacherPasswordConfirm("");
     setEditTeacherError(null);
     setOpenEditTeacher(true);
   };
@@ -214,6 +225,8 @@ export default function TeachersPage() {
     setEditTeacherName("");
     setEditTeacherEmail("");
     setEditTeacherSendSetup(false);
+    setEditTeacherPassword("");
+    setEditTeacherPasswordConfirm("");
     setEditTeacherError(null);
   };
 
@@ -302,24 +315,32 @@ export default function TeachersPage() {
 
   const saveTeacherEditForm = async () => {
     if (!editTeacherId) return;
+    if (editTeacherPasswordError) {
+      setEditTeacherError(editTeacherPasswordError);
+      return;
+    }
     try {
       setEditTeacherSaving(true);
       setEditTeacherError(null);
       setTeacherSuccess(null);
+      const password = editTeacherPassword.trim();
       const res = await fetch(`/api/teachers/${editTeacherId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editTeacherName.trim(),
           email: editTeacherEmail.trim(),
-          sendPasswordSetup: editTeacherSendSetup,
+          ...(password ? { password } : {}),
+          sendPasswordSetup: password ? false : editTeacherSendSetup,
         }),
       });
       const data = (await res.json()) as TeacherMutationResponse;
       if (!res.ok) throw new Error(data.error || "Failed to update teacher");
       await refreshTeachers();
       closeTeacherEditForm();
-      if (data.setup_email_sent) {
+      if (password) {
+        setTeacherSuccess("Teacher updated and password changed.");
+      } else if (data.setup_email_sent) {
         setTeacherSuccess("Teacher updated and password setup email sent.");
       } else if (editTeacherSendSetup) {
         setTeacherSuccess(
@@ -991,17 +1012,18 @@ export default function TeachersPage() {
             <Button variant="outline" onClick={closeTeacherEditForm} disabled={editTeacherSaving}>
               Cancel
             </Button>
-            <Button
-              disabled={
-                !editTeacherId ||
-                editTeacherSaving ||
-                !editTeacherName.trim() ||
-                !editTeacherEmail.trim()
-              }
-              onClick={saveTeacherEditForm}
-            >
-              {editTeacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-            </Button>
+              <Button
+                disabled={
+                  !editTeacherId ||
+                  editTeacherSaving ||
+                  !editTeacherName.trim() ||
+                  !editTeacherEmail.trim() ||
+                  Boolean(editTeacherPasswordError)
+                }
+                onClick={saveTeacherEditForm}
+              >
+                {editTeacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+              </Button>
           </>
         }
       >
@@ -1039,6 +1061,42 @@ export default function TeachersPage() {
           </CreationSection>
 
           <CreationSection
+            eyebrow="Password"
+            title="Set or change password"
+            description="Leave both fields blank to keep the current password."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-password">New password</Label>
+                <Input
+                  id="teacher-edit-password"
+                  type="password"
+                  placeholder="Optional new password"
+                  value={editTeacherPassword}
+                  onChange={(e) => setEditTeacherPassword(e.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="teacher-edit-password-confirm">Confirm new password</Label>
+                <Input
+                  id="teacher-edit-password-confirm"
+                  type="password"
+                  placeholder="Repeat the new password"
+                  value={editTeacherPasswordConfirm}
+                  onChange={(e) => setEditTeacherPasswordConfirm(e.target.value)}
+                  className="mt-2 h-11 bg-white"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            {editTeacherPasswordError && (
+              <p className="mt-3 text-xs font-medium text-red-600">{editTeacherPasswordError}</p>
+            )}
+          </CreationSection>
+
+          <CreationSection
             eyebrow="Access"
             title="Password setup"
             description="You can resend the setup email after saving if the teacher needs a fresh invite."
@@ -1047,7 +1105,8 @@ export default function TeachersPage() {
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="teacher-edit-setup"
-                  checked={editTeacherSendSetup}
+                  checked={editTeacherPasswordRequested ? false : editTeacherSendSetup}
+                  disabled={editTeacherPasswordRequested}
                   onCheckedChange={(checked) => setEditTeacherSendSetup(checked === true)}
                   className="mt-0.5"
                 />
@@ -1057,6 +1116,7 @@ export default function TeachersPage() {
                   </Label>
                   <p className="text-xs leading-5 text-slate-500">
                     Use this when the teacher needs a new login link after you change their profile.
+                    {editTeacherPasswordRequested ? " Disabled while a new password is being set." : ""}
                   </p>
                 </div>
               </div>

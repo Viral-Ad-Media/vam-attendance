@@ -531,8 +531,16 @@ function AttendancePage() {
     reload();
   }, [reload]);
 
-  // Poll-based refresh only when page mounts
-  // (Subscriptions removed to simplify client requirements)
+  // Supabase Realtime — auto-reload when attendance changes
+  React.useEffect(() => {
+    const channel = sb
+      .channel("attendance-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => {
+        reload();
+      })
+      .subscribe();
+    return () => { void sb.removeChannel(channel); };
+  }, [sb, reload]);
 
   /* ------------ Derived ------------ */
   const sessionMap = React.useMemo(() => byId(sessions), [sessions]);
@@ -1794,6 +1802,13 @@ function AttendancePage() {
                       →
                     </button>
                   </div>
+                  {/* Heatmap legend */}
+                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <span className="font-semibold">Attendance rate:</span>
+                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-400 inline-block" /> &gt;85%</span>
+                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400 inline-block" /> 60–85%</span>
+                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-red-400 inline-block" /> &lt;60%</span>
+                  </div>
                   <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-slate-500">
                     {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                       <div key={d} className="text-center">
@@ -1804,28 +1819,59 @@ function AttendancePage() {
                   <div className="grid grid-cols-7 gap-2">
                     {calendarDays.map(({ date, key }) => {
                       const dayAttendance = attendanceByDay.get(key) || [];
-                      const isToday =
-                        new Date().toDateString() === date.toDateString();
+                      const isToday = new Date().toDateString() === date.toDateString();
                       const inMonth = date.getMonth() === calendarMonth.month;
+
+                      // Heatmap: compute attendance rate for this day
+                      const dayTotal = dayAttendance.length;
+                      const dayPresent = dayAttendance.filter((a) => a.status === "present").length;
+                      const dayRate = dayTotal > 0 ? dayPresent / dayTotal : null;
+                      const heatBg = dayRate === null
+                        ? ""
+                        : dayRate >= 0.85
+                          ? "bg-emerald-50 border-emerald-200"
+                          : dayRate >= 0.60
+                            ? "bg-amber-50 border-amber-200"
+                            : "bg-red-50 border-red-200";
+                      const heatStripe = dayRate === null
+                        ? ""
+                        : dayRate >= 0.85
+                          ? "bg-emerald-400"
+                          : dayRate >= 0.60
+                            ? "bg-amber-400"
+                            : "bg-red-400";
+
                       return (
                         <div
                           key={key}
                           className={`min-h-[110px] rounded-lg border p-2 text-xs ${
-                            inMonth ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"
+                            inMonth
+                              ? dayTotal > 0 ? heatBg : "border-slate-200 bg-white"
+                              : "border-slate-100 bg-slate-50"
                           } ${isToday ? "ring-1 ring-primary" : ""}`}
                         >
                           <div className="mb-1 flex items-center justify-between text-slate-600">
                             <span className="text-[11px] font-semibold">
                               {date.getDate()}
                             </span>
-                            {isToday && (
-                              <span className="text-[10px] font-semibold text-primary">
-                                Today
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {dayTotal > 0 && (
+                                <span className={`inline-block h-2 w-2 rounded-full ${heatStripe}`} title={`${Math.round(dayRate! * 100)}% present`} />
+                              )}
+                              {isToday && (
+                                <span className="text-[10px] font-semibold text-primary">
+                                  Today
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          {dayTotal > 0 && (
+                            <div className="mb-1 text-[10px] font-semibold text-slate-600">
+                              {Math.round(dayRate! * 100)}% · {dayPresent}/{dayTotal}
+                            </div>
+                          )}
                           <div className="space-y-1">
-                            {dayAttendance.map((a) => {
+                            {dayAttendance.slice(0, 3).map((a) => {
                               const sess = sessionMap.get(a.session_id);
                               const stu = students.find((s) => s.id === a.student_id);
                               return (
@@ -1834,39 +1880,22 @@ function AttendancePage() {
                                   className={`rounded border px-2 py-1 ${statusSurface[a.status]}`}
                                 >
                                   <div className="mb-0.5 flex items-center justify-between">
-                                    <div className="text-[11px] font-semibold text-slate-800">
+                                    <div className="text-[11px] font-semibold text-slate-800 truncate max-w-[70px]">
                                       {stu?.name ?? "Student"}
                                     </div>
                                     {renderStatusBadge(a.status, "xs")}
                                   </div>
-                                  <div className="text-[10px] text-slate-600">
-                                    {sess ? (
-                                      <button
-                                        type="button"
-                                        className="inline-flex items-center gap-1 text-left font-semibold text-slate-700 hover:text-slate-950 hover:underline"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          onOpenEditSession(sess);
-                                        }}
-                                      >
-                                        <span>{sess.title ?? "Session"}</span>
-                                        <Pencil className="h-3 w-3" />
-                                      </button>
-                                    ) : (
-                                      "Session"
-                                    )}
+                                  <div className="text-[10px] text-slate-600 truncate">
+                                    {sess?.title ?? "Session"}
                                   </div>
-                                  {a.notes && (
-                                    <div
-                                      className="mt-1 truncate text-[10px] text-slate-500"
-                                      title={a.notes}
-                                    >
-                                      {a.notes}
-                                    </div>
-                                  )}
                                 </div>
                               );
                             })}
+                            {dayAttendance.length > 3 && (
+                              <div className="text-[10px] text-slate-500 text-center">
+                                +{dayAttendance.length - 3} more
+                              </div>
+                            )}
                             {!dayAttendance.length && (
                               <div className="rounded border border-dashed border-slate-200 px-2 py-1 text-slate-400">
                                 No attendance

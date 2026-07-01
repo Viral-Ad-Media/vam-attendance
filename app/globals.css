@@ -191,3 +191,21 @@
     @apply border-b-0;
   }
 }
+
+@media print {
+  aside,
+  nav,
+  [data-sidebar],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body {
+    background: white !important;
+  }
+}

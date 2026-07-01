@@ -69,7 +69,10 @@ export async function POST(request: Request) {
           student_id: en.student_id,
           status: "absent" as const,
         }));
-        await supabase.from("attendance").upsert(rows, { onConflict: "org_id,session_id,student_id" });
+        await supabase.from("attendance").upsert(rows, {
+          onConflict: "org_id,session_id,student_id",
+          ignoreDuplicates: true,
+        });
       }
     }
 

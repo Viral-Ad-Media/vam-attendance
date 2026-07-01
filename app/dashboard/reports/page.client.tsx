@@ -4,7 +4,8 @@ import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { AlertCircle, Loader, TrendingUp, Users, Calendar } from "lucide-react";
+import { AlertCircle, Loader, TrendingUp, Users, Calendar, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type AttendanceStat = {
   date: string;
@@ -103,7 +104,12 @@ export default function ReportsPageClient() {
 
   return (
     <div className="w-full space-y-5">
-      <TopBar title="Reports" subtitle="View organization analytics and insights" />
+      <TopBar title="Reports" subtitle="View organization analytics and insights" showAccountInTitle={false} showAccountIdInSubtitle={false} />
+      <div className="flex justify-end print:hidden">
+        <Button variant="outline" onClick={() => window.print()} className="gap-2">
+          <Printer className="h-4 w-4" /> Print / Save PDF
+        </Button>
+      </div>
 
       {loading && (
         <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-6 shadow-sm">
