@@ -12,22 +12,26 @@ import {
   GraduationCap,
   Settings,
   CreditCard,
-  ShieldCheck,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
+  ClipboardCheck,
+  MessageSquareText,
+  CalendarClock,
+  UserPlus,
+  Activity,
+  Send,
+  Mail,
+  Database,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
 
-type NavChild = { href: string; label: string };
 type NavItem = {
   key: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  href?: string;            // optional for sections that act only as parents
-  children?: NavChild[];    // submenu entries
+  href: string;
 };
 
 type SidebarProps = {
@@ -38,47 +42,19 @@ type SidebarProps = {
 
 const nav: NavItem[] = [
   { key: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  {
-    key: "students",
-    label: "Students",
-    icon: GraduationCap,
-    children: [
-      { href: "/dashboard/students", label: "Directory" },
-      { href: "/dashboard/attendance", label: "Attendance" },
-      { href: "/dashboard/feedback", label: "Feedback" },
-    ],
-  },
-  {
-    key: "teachers",
-    label: "Teachers",
-    icon: Users,
-    children: [
-      { href: "/dashboard/teachers", label: "Directory" },
-      { href: "/dashboard/sessions", label: "Sessions" },
-    ],
-  },
-  {
-    key: "courses",
-    label: "Courses",
-    icon: BookOpen,
-    children: [
-      { href: "/dashboard/courses", label: "Courses" },
-      { href: "/dashboard/enrollments", label: "Enrollments" },
-    ],
-  },
+  { key: "students", href: "/dashboard/students", label: "Students", icon: GraduationCap },
+  { key: "attendance", href: "/dashboard/attendance", label: "Attendance", icon: ClipboardCheck },
+  { key: "feedback", href: "/dashboard/feedback", label: "Feedback", icon: MessageSquareText },
+  { key: "teachers", href: "/dashboard/teachers", label: "Teachers", icon: Users },
+  { key: "sessions", href: "/dashboard/sessions", label: "Sessions", icon: CalendarClock },
+  { key: "courses", href: "/dashboard/courses", label: "Courses", icon: BookOpen },
+  { key: "enrollments", href: "/dashboard/enrollments", label: "Enrollments", icon: UserPlus },
   { key: "reports", href: "/dashboard/reports", label: "Reports", icon: LineChart },
   { key: "billing", href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-  {
-    key: "admin",
-    label: "Admin",
-    icon: ShieldCheck,
-    children: [
-      { href: "/dashboard/audit", label: "Audit logs" },
-      { href: "/dashboard/feedback-requests", label: "Feedback requests" },
-      { href: "/dashboard/invites", label: "Invites" },
-      { href: "/dashboard/import-export", label: "Import/Export" },
-    ],
-  },
+  { key: "audit", href: "/dashboard/audit", label: "Audit logs", icon: Activity },
+  { key: "feedback-requests", href: "/dashboard/feedback-requests", label: "Feedback requests", icon: Send },
+  { key: "invites", href: "/dashboard/invites", label: "Invites", icon: Mail },
+  { key: "import-export", href: "/dashboard/import-export", label: "Import/Export", icon: Database },
   { key: "settings", href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -99,42 +75,13 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
     if (isMobile) setCollapsed(false);
   }, [isMobile]);
 
-  // --- expanded parent sections (new) ---
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      return JSON.parse(localStorage.getItem("vam.sidebar.expanded") || "{}");
-    } catch {
-      return {};
-    }
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem("vam.sidebar.expanded", JSON.stringify(expanded)); } catch {}
-  }, [expanded]);
-
-  // Determine which parent is active (matches any child or parent href)
-  const isItemActive = React.useCallback((item: NavItem) => {
-    if (item.children?.length) {
-      return item.children.some((c) => pathname.startsWith(c.href));
-    }
-    return item.href ? pathname === item.href : false;
-  }, [pathname]);
-
-  React.useEffect(() => {
-    setExpanded((current) => {
-      const next = { ...current };
-      nav.forEach((item) => {
-        if (item.children?.length && isItemActive(item)) {
-          next[item.key] = true;
-        }
-      });
-      return next;
-    });
-  }, [isItemActive]);
-
-  const toggle = (key: string) => {
-    setExpanded((e) => ({ ...e, [key]: !e[key] }));
-  };
+  const isItemActive = React.useCallback(
+    (item: NavItem) =>
+      item.href === "/dashboard"
+        ? pathname === "/dashboard"
+        : pathname === item.href || pathname.startsWith(item.href + "/"),
+    [pathname]
+  );
 
   const handleNavigate = () => {
     onNavigate?.();
@@ -205,87 +152,24 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
             const Icon = item.icon;
             const active = isItemActive(item);
 
-            // Simple leaf link
-            if (!item.children?.length) {
-              return (
-                <li key={item.key}>
-                  <Link
-                    href={item.href || "#"}
-                    className={cn(
-                      "group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-                      active
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-slate-700 hover:bg-slate-100"
-                    )}
-                    title={item.label}
-                    onClick={handleNavigate}
-                  >
-                    <Icon className={cn("h-4 w-4", active ? "text-white" : "text-slate-500")} />
-                    {!collapsed && (
-                      <span className="truncate font-medium">{item.label}</span>
-                    )}
-                  </Link>
-                </li>
-              );
-            }
-
-            // Parent with submenu
-            const open = !!expanded[item.key];
-
             return (
               <li key={item.key}>
-                <button
-                  type="button"
-                  onClick={() => toggle(item.key)}
+                <Link
+                  href={item.href}
                   className={cn(
-                    "w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+                    "group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
                     active
                       ? "bg-primary text-white shadow-sm"
                       : "text-slate-700 hover:bg-slate-100"
                   )}
                   title={item.label}
+                  onClick={handleNavigate}
                 >
                   <Icon className={cn("h-4 w-4", active ? "text-white" : "text-slate-500")} />
                   {!collapsed && (
-                    <>
-                      <span className="truncate flex-1 text-left">{item.label}</span>
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 transition-transform",
-                          open ? "rotate-0" : "-rotate-90",
-                          active ? "text-white" : "text-slate-500"
-                        )}
-                      />
-                    </>
+                    <span className="truncate font-medium">{item.label}</span>
                   )}
-                </button>
-
-                {/* Submenu */}
-                {!collapsed && open && (
-                  <ul className="mt-0.5 ml-8 space-y-0.5">
-                    {item.children.map((c) => {
-                      const childActive = pathname === c.href || pathname.startsWith(c.href + "/");
-                      return (
-                        <li key={c.href}>
-                          <Link
-                            href={c.href}
-                            className={cn(
-                              "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition",
-                              childActive
-                                ? "bg-primary text-white shadow-sm"
-                                : "text-slate-700 hover:bg-slate-100"
-                            )}
-                            title={c.label}
-                            onClick={handleNavigate}
-                          >
-                            <span className={cn("h-1.5 w-1.5 rounded-full", childActive ? "bg-white" : "bg-slate-400")} />
-                            <span className="truncate">{c.label}</span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                </Link>
               </li>
             );
           })}
