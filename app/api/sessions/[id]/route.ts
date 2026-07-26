@@ -32,13 +32,16 @@ function handleError(error: unknown) {
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("org_id", orgId)
-      .eq("id", id)
-      .single();
+    const { supabase, orgId, role, teacherId } = await getRouteContext();
+    if (role === "teacher" && !teacherId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    let query = supabase.from("sessions").select("*").eq("org_id", orgId).eq("id", id);
+    if (role === "teacher" && teacherId) {
+      query = query.eq("teacher_id", teacherId);
+    }
+    const { data, error } = await query.single();
 
     if (error) throw error;
     return NextResponse.json(data);
@@ -52,15 +55,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    if (role === "teacher" && !teacherId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-    const { data, error } = await supabase
-      .from("sessions")
-      .update(payload)
-      .eq("org_id", orgId)
-      .eq("id", id)
-      .select()
-      .single();
+    let query = supabase.from("sessions").update(payload).eq("org_id", orgId).eq("id", id);
+    if (role === "teacher" && teacherId) {
+      query = query.eq("teacher_id", teacherId);
+    }
+    const { data, error } = await query.select().single();
 
     if (error) throw error;
     await logAudit(supabase, orgId, session.user.id, "update", "session", id, payload);
@@ -73,12 +77,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId } = await getRouteContext();
-    const { error } = await supabase
-      .from("sessions")
-      .delete()
-      .eq("org_id", orgId)
-      .eq("id", id);
+    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    if (role === "teacher" && !teacherId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    let query = supabase.from("sessions").delete().eq("org_id", orgId).eq("id", id);
+    if (role === "teacher" && teacherId) {
+      query = query.eq("teacher_id", teacherId);
+    }
+    const { error } = await query;
 
     if (error) throw error;
     await logAudit(supabase, orgId, session.user.id, "delete", "session", id);

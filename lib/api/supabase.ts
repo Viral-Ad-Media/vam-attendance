@@ -7,6 +7,8 @@ export type RouteContext = {
   supabase: SupabaseClient;
   session: Session;
   orgId: string;
+  role: string | null;
+  teacherId: string | null;
 };
 
 type MetadataMap = Record<string, unknown>;
@@ -21,6 +23,14 @@ function asMetadataMap(input: unknown): MetadataMap {
 function readString(map: MetadataMap, key: string): string | null {
   const value = map[key];
   return typeof value === "string" ? value : null;
+}
+
+function readFirstRole(map: MetadataMap): string | null {
+  const roles = map.roles;
+  if (Array.isArray(roles) && typeof roles[0] === "string") {
+    return roles[0];
+  }
+  return null;
 }
 
 function isUuid(value: string): boolean {
@@ -148,5 +158,23 @@ export async function getRouteContext(): Promise<RouteContext> {
     throw new ApiError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
-  return { supabase, session, orgId: String(orgId) };
+  const role =
+    readString(appMeta, "role") ||
+    readString(userMeta, "role") ||
+    readFirstRole(appMeta) ||
+    null;
+
+  let teacherId: string | null = null;
+  if (role === "teacher") {
+    const { data: teacherRow, error: teacherErr } = await supabase
+      .from("teachers")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (teacherErr) throw teacherErr;
+    teacherId = teacherRow?.id ?? null;
+  }
+
+  return { supabase, session, orgId: String(orgId), role, teacherId };
 }

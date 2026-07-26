@@ -17,12 +17,24 @@ const sessionSchema = z.object({
 
 export async function GET() {
   try {
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { supabase, orgId, role, teacherId } = await getRouteContext();
+
+    // Teachers only ever see their own sessions, never the whole org's.
+    if (role === "teacher" && !teacherId) {
+      return NextResponse.json([]);
+    }
+
+    let query = supabase
       .from("sessions")
       .select("*")
       .eq("org_id", orgId)
       .order("starts_at", { ascending: false });
+
+    if (role === "teacher" && teacherId) {
+      query = query.eq("teacher_id", teacherId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return NextResponse.json(data ?? []);

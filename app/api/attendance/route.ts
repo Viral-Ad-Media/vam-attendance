@@ -34,10 +34,35 @@ async function trySendFeedbackEmail(attendance: {
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, orgId } = await getRouteContext();
+    const { supabase, orgId, role, teacherId } = await getRouteContext();
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("session_id");
     const studentId = searchParams.get("student_id");
+
+    // Teachers only ever see attendance for their own sessions, never the whole org's.
+    if (role === "teacher") {
+      if (!teacherId) return NextResponse.json([]);
+
+      let ownSessionsQuery = supabase.from("sessions").select("id").eq("org_id", orgId).eq("teacher_id", teacherId);
+      if (sessionId) ownSessionsQuery = ownSessionsQuery.eq("id", sessionId);
+      const { data: ownSessions, error: ownSessionsError } = await ownSessionsQuery;
+      if (ownSessionsError) throw ownSessionsError;
+
+      const ownSessionIds = (ownSessions ?? []).map((s) => s.id as string);
+      if (ownSessionIds.length === 0) return NextResponse.json([]);
+
+      let query = supabase
+        .from("attendance")
+        .select("*")
+        .eq("org_id", orgId)
+        .in("session_id", ownSessionIds)
+        .order("noted_at", { ascending: false });
+      if (studentId) query = query.eq("student_id", studentId);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return NextResponse.json(data ?? []);
+    }
 
     let query = supabase
       .from("attendance")

@@ -12,6 +12,23 @@ const updateSchema = z.object({
 
 type RouteParamsPromise = { params: Promise<{ id: string }> };
 
+async function assertTeacherOwnsAttendance(
+  supabase: Awaited<ReturnType<typeof getRouteContext>>["supabase"],
+  orgId: string,
+  teacherId: string,
+  attendanceId: string
+) {
+  const { data, error } = await supabase
+    .from("attendance")
+    .select("session_id, sessions!inner(teacher_id)")
+    .eq("org_id", orgId)
+    .eq("id", attendanceId)
+    .single();
+  if (error) throw error;
+  const sessionTeacherId = (data as unknown as { sessions: { teacher_id: string | null } }).sessions?.teacher_id;
+  return sessionTeacherId === teacherId;
+}
+
 async function trySendFeedbackEmail(attendance: {
   id: string;
   org_id?: string | null;
@@ -34,7 +51,13 @@ async function trySendFeedbackEmail(attendance: {
 export async function GET(_: NextRequest, { params }: RouteParamsPromise) {
   try {
     const { id } = await params;
-    const { supabase, orgId } = await getRouteContext();
+    const { supabase, orgId, role, teacherId } = await getRouteContext();
+    if (role === "teacher") {
+      if (!teacherId || !(await assertTeacherOwnsAttendance(supabase, orgId, teacherId, id))) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    }
+
     const { data, error } = await supabase
       .from("attendance")
       .select("*")
@@ -54,7 +77,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    if (role === "teacher") {
+      if (!teacherId || !(await assertTeacherOwnsAttendance(supabase, orgId, teacherId, id))) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    }
 
     const { data, error } = await supabase
       .from("attendance")
@@ -76,7 +104,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
 export async function DELETE(_: NextRequest, { params }: RouteParamsPromise) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId } = await getRouteContext();
+    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    if (role === "teacher") {
+      if (!teacherId || !(await assertTeacherOwnsAttendance(supabase, orgId, teacherId, id))) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    }
+
     const { error } = await supabase
       .from("attendance")
       .delete()
