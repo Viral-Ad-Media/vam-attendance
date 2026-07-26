@@ -29,8 +29,8 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       setLoading(false);
       return;
     }
@@ -126,7 +126,10 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
                 {error}
               </div>
             )}

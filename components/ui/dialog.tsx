@@ -50,7 +50,7 @@ export const DialogContent = React.forwardRef<
       {!hideClose && (
         <DialogPrimitive.Close
           className={cn(
-            "absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center",
+            "absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center",
             "rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400",
             "disabled:pointer-events-none dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"

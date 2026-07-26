@@ -751,8 +751,12 @@ export default function StudentsPage() {
                           <div className="flex items-center gap-2">
                             {s.name}
                             {atRiskIds.has(s.id) && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700" title={`Attendance: ${atRiskRates.get(s.id)}%`}>
-                                <AlertTriangle className="h-2.5 w-2.5" />
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700"
+                                title={`Attendance: ${atRiskRates.get(s.id)}%`}
+                                aria-label={`At risk — attendance ${atRiskRates.get(s.id)}%`}
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
                                 {atRiskRates.get(s.id)}%
                               </span>
                             )}

@@ -90,6 +90,7 @@ export function Footer() {
               href="https://twitter.com"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="VAM Attendance on Twitter"
               className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <Twitter className="h-5 w-5" />
@@ -98,6 +99,7 @@ export function Footer() {
               href="https://github.com"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="VAM Attendance on GitHub"
               className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <Github className="h-5 w-5" />
@@ -106,6 +108,7 @@ export function Footer() {
               href="https://linkedin.com"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="VAM Attendance on LinkedIn"
               className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <Linkedin className="h-5 w-5" />

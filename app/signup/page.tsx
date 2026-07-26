@@ -86,6 +86,18 @@ export default function SignupPage() {
         : "medium"
       : "weak";
 
+  const passwordStrengthFilledBars =
+    passwordStrength === "strong" ? 3 : passwordStrength === "medium" ? 2 : 1;
+  const passwordStrengthColor =
+    passwordStrength === "strong"
+      ? "bg-emerald-500"
+      : passwordStrength === "medium"
+        ? "bg-amber-500"
+        : "bg-rose-500";
+
+  const passwordsMismatch =
+    formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword;
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -97,7 +109,10 @@ export default function SignupPage() {
           </div>
 
           {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div
+              role="alert"
+              className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
               {error}
             </div>
           )}
@@ -166,23 +181,14 @@ export default function SignupPage() {
               {formData.password && (
                 <div className="mt-2">
                   <div className="mb-1 flex gap-1">
-                    <div
-                      className={`h-1 flex-1 rounded-full ${
-                        passwordStrength === "weak" || passwordStrength === "medium" || passwordStrength === "strong"
-                          ? "bg-rose-500"
-                          : "bg-slate-200"
-                      }`}
-                    />
-                    <div
-                      className={`h-1 flex-1 rounded-full ${
-                        passwordStrength === "medium" || passwordStrength === "strong" ? "bg-amber-500" : "bg-slate-200"
-                      }`}
-                    />
-                    <div
-                      className={`h-1 flex-1 rounded-full ${
-                        passwordStrength === "strong" ? "bg-emerald-500" : "bg-slate-200"
-                      }`}
-                    />
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full ${
+                          i < passwordStrengthFilledBars ? passwordStrengthColor : "bg-slate-200"
+                        }`}
+                      />
+                    ))}
                   </div>
                   <p className="text-xs capitalize text-slate-500">{passwordStrength} password</p>
                 </div>
@@ -203,6 +209,9 @@ export default function SignupPage() {
                 className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 required
               />
+              {passwordsMismatch && (
+                <p className="mt-1.5 text-xs text-red-600">Passwords do not match</p>
+              )}
             </div>
 
             <label className="flex items-start gap-2 text-sm text-slate-600">

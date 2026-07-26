@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Pencil, Plus, Trash2, ClipboardCheck } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, ClipboardCheck, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 
 type Session = {
@@ -100,6 +100,18 @@ export default function SessionsPage() {
     setSessions((await sRes.json()) as Session[]);
     setAttendance((await aRes.json()) as Attendance[]);
   }, []);
+
+  React.useEffect(() => {
+    if (!openEdit && !openNew) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpenEdit(false);
+        setOpenNew(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openEdit, openNew]);
 
   React.useEffect(() => {
     const load = async () => {
@@ -434,7 +446,8 @@ export default function SessionsPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm font-medium text-slate-700">
                 <button
-                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50"
+                  aria-label="Previous month"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50"
                   onClick={() => {
                     setCalendarMonth((prev) => {
                       const m = prev.month === 0 ? 11 : prev.month - 1;
@@ -443,7 +456,7 @@ export default function SessionsPage() {
                     });
                   }}
                 >
-                  ←
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
                 <span>
                   {new Date(calendarMonth.year, calendarMonth.month, 1).toLocaleDateString(undefined, {
@@ -452,7 +465,8 @@ export default function SessionsPage() {
                   })}
                 </span>
                 <button
-                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50"
+                  aria-label="Next month"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50"
                   onClick={() => {
                     setCalendarMonth((prev) => {
                       const m = prev.month === 11 ? 0 : prev.month + 1;
@@ -461,7 +475,7 @@ export default function SessionsPage() {
                     });
                   }}
                 >
-                  →
+                  <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
               <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-slate-500">
@@ -573,10 +587,10 @@ export default function SessionsPage() {
               <h3 className="text-base font-semibold text-slate-800">Edit Session</h3>
               <button
                 aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-slate-100"
                 onClick={() => setOpenEdit(false)}
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-2">
@@ -627,7 +641,7 @@ export default function SessionsPage() {
                 onChange={(e) => setEditStartsAt(e.target.value)}
               />
               {editError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {editError}
                 </div>
               )}
@@ -655,10 +669,10 @@ export default function SessionsPage() {
               <h3 className="text-base font-semibold text-slate-800">Add Session</h3>
               <button
                 aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-slate-100"
                 onClick={() => setOpenNew(false)}
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-2">
@@ -709,7 +723,7 @@ export default function SessionsPage() {
                 onChange={(e) => setNewStartsAt(e.target.value)}
               />
               {newError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {newError}
                 </div>
               )}

@@ -69,7 +69,7 @@ export default function TeachersPage() {
   const [newTeacherName, setNewTeacherName] = React.useState("");
   const [newTeacherEmail, setNewTeacherEmail] = React.useState("");
   const [newTeacherPassword, setNewTeacherPassword] = React.useState("");
-  const [sendTeacherSetupLink, setSendTeacherSetupLink] = React.useState(true);
+  const [sendTeacherSetupLink, setSendTeacherSetupLink] = React.useState(false);
   const [teacherSaving, setTeacherSaving] = React.useState(false);
   const [teacherError, setTeacherError] = React.useState<string | null>(null);
   const [selectedTeacherIds, setSelectedTeacherIds] = React.useState<string[]>([]);
@@ -190,7 +190,7 @@ export default function TeachersPage() {
     setNewTeacherName("");
     setNewTeacherEmail("");
     setNewTeacherPassword("");
-    setSendTeacherSetupLink(true);
+    setSendTeacherSetupLink(false);
     setTeacherError(null);
   };
 
@@ -944,13 +944,14 @@ export default function TeachersPage() {
           >
             <div className="space-y-4">
               <div>
-                <Label htmlFor="teacher-create-password">Temporary password</Label>
+                <Label htmlFor="teacher-create-password">Password</Label>
                 <Input
                   id="teacher-create-password"
                   type="password"
-                  placeholder="Optional password (min 8 chars)"
+                  placeholder={sendTeacherSetupLink ? "Not needed — setup email will handle it" : "Set a password (min 8 chars)"}
                   value={newTeacherPassword}
                   onChange={(e) => setNewTeacherPassword(e.target.value)}
+                  disabled={sendTeacherSetupLink}
                   className="mt-2 h-11 bg-white"
                 />
               </div>
@@ -959,21 +960,25 @@ export default function TeachersPage() {
                   <Checkbox
                     id="teacher-create-setup"
                     checked={sendTeacherSetupLink}
-                    onCheckedChange={(checked) => setSendTeacherSetupLink(checked === true)}
+                    onCheckedChange={(checked) => {
+                      const isChecked = checked === true;
+                      setSendTeacherSetupLink(isChecked);
+                      if (isChecked) setNewTeacherPassword("");
+                    }}
                     className="mt-0.5"
                   />
                   <div className="space-y-1">
                     <Label htmlFor="teacher-create-setup" className="text-sm font-medium text-slate-900">
-                      Send password setup email
+                      Send password setup email instead
                     </Label>
                     <p className="text-xs leading-5 text-slate-500">
-                      Recommended if you want the teacher to finish signing in from email.
+                      Skip this if you'd rather set the password yourself and give the teacher direct access now.
                     </p>
                   </div>
                 </div>
               </div>
               <p className="text-xs leading-5 text-slate-500">
-                Leave the password blank if you want the setup email to handle access.
+                By default you set the password directly and the teacher can sign in right away.
               </p>
             </div>
           </CreationSection>
