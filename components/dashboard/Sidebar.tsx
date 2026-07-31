@@ -8,10 +8,8 @@ import {
   LayoutDashboard,
   LineChart,
   BookOpen,
-  Users,
   GraduationCap,
   Settings,
-  CreditCard,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
@@ -26,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 
 type NavItem = {
   key: string;
@@ -45,12 +44,10 @@ const nav: NavItem[] = [
   { key: "students", href: "/dashboard/students", label: "Students", icon: GraduationCap },
   { key: "attendance", href: "/dashboard/attendance", label: "Attendance", icon: ClipboardCheck },
   { key: "feedback", href: "/dashboard/feedback", label: "Feedback", icon: MessageSquareText },
-  { key: "teachers", href: "/dashboard/teachers", label: "Teachers", icon: Users },
   { key: "sessions", href: "/dashboard/sessions", label: "Sessions", icon: CalendarClock },
   { key: "courses", href: "/dashboard/courses", label: "Courses", icon: BookOpen },
   { key: "enrollments", href: "/dashboard/enrollments", label: "Enrollments", icon: UserPlus },
   { key: "reports", href: "/dashboard/reports", label: "Reports", icon: LineChart },
-  { key: "billing", href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { key: "audit", href: "/dashboard/audit", label: "Audit logs", icon: Activity },
   { key: "feedback-requests", href: "/dashboard/feedback-requests", label: "Feedback requests", icon: Send },
   { key: "invites", href: "/dashboard/invites", label: "Invites", icon: Mail },
@@ -112,16 +109,18 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
             )}
           </Link>
           {!isMobile && (
-            <button
-              type="button"
-              onClick={() => setCollapsed((v) => !v)}
-              className={cn(
-                "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100",
-              )}
-              title={collapsed ? "Expand" : "Collapse"}
-            >
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </button>
+            <SimpleTooltip label={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
+              <button
+                type="button"
+                onClick={() => setCollapsed((v) => !v)}
+                className={cn(
+                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100",
+                )}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              </button>
+            </SimpleTooltip>
           )}
           {isMobile && (
             <button
@@ -152,24 +151,34 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
             const Icon = item.icon;
             const active = isItemActive(item);
 
+            const link = (
+              <Link
+                href={item.href}
+                data-tour={isMobile ? undefined : `nav-${item.key}`}
+                className={cn(
+                  "group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+                  active
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-slate-700 hover:bg-slate-100"
+                )}
+                onClick={handleNavigate}
+              >
+                <Icon className={cn("h-4 w-4", active ? "text-white" : "text-slate-500")} />
+                {!collapsed && (
+                  <span className="truncate font-medium">{item.label}</span>
+                )}
+              </Link>
+            );
+
             return (
               <li key={item.key}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-                    active
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-slate-700 hover:bg-slate-100"
-                  )}
-                  title={item.label}
-                  onClick={handleNavigate}
-                >
-                  <Icon className={cn("h-4 w-4", active ? "text-white" : "text-slate-500")} />
-                  {!collapsed && (
-                    <span className="truncate font-medium">{item.label}</span>
-                  )}
-                </Link>
+                {collapsed ? (
+                  <SimpleTooltip label={item.label} side="right">
+                    {link}
+                  </SimpleTooltip>
+                ) : (
+                  link
+                )}
               </li>
             );
           })}
@@ -178,7 +187,7 @@ export function Sidebar({ variant = "desktop", onNavigate, onClose }: SidebarPro
 
         {!collapsed && (
           <div className="mb-2">
-            <CommandPalette />
+            <CommandPalette tourAnchor={!isMobile} />
           </div>
         )}
 

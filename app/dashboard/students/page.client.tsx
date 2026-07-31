@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleTooltip } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import {
   Select,
   SelectContent,
@@ -773,42 +775,57 @@ export default function StudentsPage() {
                         <td className="py-2 pr-3">{s.country ?? "—"}</td>
                         <td className="py-2 pr-0 text-right" onClick={(event) => event.stopPropagation()}>
                           <div className="inline-flex flex-wrap justify-end gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => {
-                                setEditStudentId(s.id);
-                                setEditStudentName(s.name);
-                                setEditStudentEmail(s.email || "");
-                                setEditStudentPhone(s.phone || "");
-                                setEditStudentCountry(s.country || "");
-                                setOpenEditStudent(true);
-                              }}
-                              title="Edit student"
-                              aria-label="Edit student"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="text-red-600 hover:bg-red-50"
-                              onClick={() => deleteStudent(s)}
-                              title="Delete student"
-                              aria-label="Delete student"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <SimpleTooltip label="Edit student">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditStudentId(s.id);
+                                  setEditStudentName(s.name);
+                                  setEditStudentEmail(s.email || "");
+                                  setEditStudentPhone(s.phone || "");
+                                  setEditStudentCountry(s.country || "");
+                                  setOpenEditStudent(true);
+                                }}
+                                aria-label="Edit student"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </SimpleTooltip>
+                            <SimpleTooltip label="Delete student">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="text-red-600 hover:bg-red-50"
+                                onClick={() => deleteStudent(s)}
+                                aria-label="Delete student"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </SimpleTooltip>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {!filtered.length && (
-                      <tr>
-                        <td className="py-6 text-center text-slate-500" colSpan={7}>
-                          No students found. Use “Add Student” to get started.
-                        </td>
-                      </tr>
+                    {!filtered.length && query && (
+                      <EmptyState
+                        icon={GraduationCap}
+                        title="No matches for your search"
+                        description={`No students match "${query}". Try a different name, email, phone, or country.`}
+                        actionLabel="Clear search"
+                        onAction={() => setQuery("")}
+                        colSpan={7}
+                      />
+                    )}
+                    {!filtered.length && !query && (
+                      <EmptyState
+                        icon={GraduationCap}
+                        title="No students yet"
+                        description="Add your first student to start tracking enrollments and attendance."
+                        actionLabel="Add Student"
+                        onAction={openCreateStudentDialog}
+                        colSpan={7}
+                      />
                     )}
                   </tbody>
                 </table>
@@ -853,38 +870,56 @@ export default function StudentsPage() {
                         <p>Country: {s.country ?? "—"}</p>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => {
-                            setEditStudentId(s.id);
-                            setEditStudentName(s.name);
-                            setEditStudentEmail(s.email || "");
-                            setEditStudentPhone(s.phone || "");
-                            setEditStudentCountry(s.country || "");
-                            setOpenEditStudent(true);
-                          }}
-                          title="Edit student"
-                          aria-label="Edit student"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className="text-red-600 hover:bg-red-50"
-                          onClick={() => deleteStudent(s)}
-                          title="Delete student"
-                          aria-label="Delete student"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <SimpleTooltip label="Edit student">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => {
+                              setEditStudentId(s.id);
+                              setEditStudentName(s.name);
+                              setEditStudentEmail(s.email || "");
+                              setEditStudentPhone(s.phone || "");
+                              setEditStudentCountry(s.country || "");
+                              setOpenEditStudent(true);
+                            }}
+                            aria-label="Edit student"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </SimpleTooltip>
+                        <SimpleTooltip label="Delete student">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={() => deleteStudent(s)}
+                            aria-label="Delete student"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </SimpleTooltip>
                       </div>
                     </div>
                   ))}
                   {!filtered.length && (
-                    <div className="col-span-full rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-600">
-                      No students found. Use “Add Student” to get started.
+                    <div className="col-span-full">
+                      {query ? (
+                        <EmptyState
+                          icon={GraduationCap}
+                          title="No matches for your search"
+                          description={`No students match "${query}". Try a different name, email, phone, or country.`}
+                          actionLabel="Clear search"
+                          onAction={() => setQuery("")}
+                        />
+                      ) : (
+                        <EmptyState
+                          icon={GraduationCap}
+                          title="No students yet"
+                          description="Add your first student to start tracking enrollments and attendance."
+                          actionLabel="Add Student"
+                          onAction={openCreateStudentDialog}
+                        />
+                      )}
                     </div>
                   )}
                 </div>

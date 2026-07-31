@@ -353,6 +353,8 @@ CREATE POLICY "Audit logs insert by members"
 
 CREATE POLICY "Users readable by self within org"
   ON users FOR SELECT USING (id = auth.uid());
+CREATE POLICY "Users readable by org admins"
+  ON users FOR SELECT USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
 CREATE POLICY "Users update self within org"
   ON users FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 

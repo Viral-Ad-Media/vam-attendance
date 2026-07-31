@@ -20,8 +20,8 @@ function readMetadataString(input: unknown, key: string) {
 
 export async function GET() {
   try {
-    const { supabase, session, orgId } = await getRouteContext();
-    const [profileResult, orgResult, membershipResult] = await Promise.all([
+    const { supabase, session, orgId, role, isSuperadmin } = await getRouteContext();
+    const [profileResult, orgResult] = await Promise.all([
       supabase
         .from("users")
         .select("id, org_id, email, full_name, phone, location, bio, avatar_url, created_at, updated_at")
@@ -33,17 +33,10 @@ export async function GET() {
         .select("id, name, owner_id, created_at")
         .eq("id", orgId)
         .maybeSingle(),
-      supabase
-        .from("memberships")
-        .select("role")
-        .eq("org_id", orgId)
-        .eq("user_id", session.user.id)
-        .maybeSingle(),
     ]);
 
     if (profileResult.error) throw profileResult.error;
     if (orgResult.error) throw orgResult.error;
-    if (membershipResult.error) throw membershipResult.error;
 
     const authEmail = session.user.email ?? "";
     const fallbackName =
@@ -64,9 +57,6 @@ export async function GET() {
         created_at: session.user.created_at,
         updated_at: null,
       };
-    const role =
-      membershipResult.data?.role ??
-      (organization?.owner_id === session.user.id ? "owner" : "member");
 
     return NextResponse.json({
       profile,
@@ -78,6 +68,7 @@ export async function GET() {
           }
         : null,
       role,
+      isSuperadmin,
     });
   } catch (error) {
     return respondWithError(error, { action: "get-account-profile" });

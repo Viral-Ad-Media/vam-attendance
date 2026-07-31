@@ -43,7 +43,7 @@ function score(item: CommandItem, query: string): number {
   return 0;
 }
 
-export function CommandPalette() {
+export function CommandPalette({ tourAnchor = false }: { tourAnchor?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -97,6 +97,7 @@ export function CommandPalette() {
       {/* Trigger shown in sidebar footer area via keyboard shortcut; also a small hint button */}
       <Dialog.Trigger asChild>
         <button
+          data-tour={tourAnchor ? "command-palette" : undefined}
           className="hidden lg:flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 transition w-full"
           aria-label="Open command palette"
         >

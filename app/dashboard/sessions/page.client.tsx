@@ -4,6 +4,7 @@
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -418,11 +419,14 @@ export default function SessionsPage() {
                     );
                   })}
                   {!filteredSessions.length && (
-                    <tr>
-                      <td className="py-6 text-center text-slate-500" colSpan={6}>
-                        No sessions yet.
-                      </td>
-                    </tr>
+                    <EmptyState
+                      icon={ClipboardCheck}
+                      title="No sessions yet"
+                      description="Schedule your first session to start tracking attendance."
+                      actionLabel="New Session"
+                      onAction={() => setOpenNew(true)}
+                      colSpan={6}
+                    />
                   )}
                 </tbody>
               </table>

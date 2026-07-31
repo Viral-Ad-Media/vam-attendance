@@ -5,6 +5,7 @@ import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -466,8 +467,24 @@ export default function CoursesPage() {
                   );
                 })}
                 {!filteredCourses.length && (
-                  <div className="col-span-full rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-600">
-                    No courses yet. Create your first course to get started.
+                  <div className="col-span-full">
+                    {query ? (
+                      <EmptyState
+                        icon={BookOpen}
+                        title="No matches for your search"
+                        description={`No courses match "${query}". Try a different title.`}
+                        actionLabel="Clear search"
+                        onAction={() => setQuery("")}
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={BookOpen}
+                        title="No courses yet"
+                        description="Create your first course to start scheduling sessions and enrolling students."
+                        actionLabel="New Course"
+                        onAction={openNewCourseDialog}
+                      />
+                    )}
                   </div>
                 )}
               </div>

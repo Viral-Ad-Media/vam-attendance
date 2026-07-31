@@ -5,6 +5,7 @@ import * as React from "react";
 import { AccountProvider } from "@/components/dashboard/AccountContext";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { ToastProvider } from "@/components/ui/toast-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-slate-50">
       {/* Provide account context to BOTH sidebar and pages */}
       <ToastProvider>
+      <TooltipProvider delayDuration={300}>
       <AccountProvider>
         {/* Mobile nav trigger */}
         <button
@@ -66,6 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </main>
         </div>
       </AccountProvider>
+      </TooltipProvider>
       </ToastProvider>
     </div>
   );

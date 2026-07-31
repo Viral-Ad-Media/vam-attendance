@@ -7,6 +7,8 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, AlertCircle, Loader, AlertTriangle, TrendingDown } from "lucide-react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
+import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
+import { ProductTourLauncher } from "@/components/dashboard/ProductTour";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +67,10 @@ export default function OverviewPage() {
     <div className="w-full space-y-5">
       <TopBar subtitle="Overview" title="Dashboard Overview" />
 
+      <div className="flex justify-end">
+        <ProductTourLauncher />
+      </div>
+
       {stats.loading && (
         <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-6 shadow-sm">
           <Loader className="mr-2 h-5 w-5 animate-spin text-primary" />
@@ -80,6 +86,8 @@ export default function OverviewPage() {
 
       {!stats.loading && (
         <>
+          <OnboardingChecklist />
+
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="relative overflow-hidden rounded-lg bg-slate-950 p-5 text-white shadow-sm lg:col-span-2">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -305,17 +313,6 @@ export default function OverviewPage() {
                       <div className="font-semibold">Attendance alert</div>
                       <div className="text-xs text-amber-800">
                         Average attendance is {stats.avgAttendanceRate}%, below 80%.
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {stats.totalStudents === 0 && sessions.length === 0 && (
-                  <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <AlertCircle className="mt-0.5 h-4 w-4 text-slate-600" />
-                    <div className="text-sm text-slate-800">
-                      <div className="font-semibold">Getting started</div>
-                      <div className="text-xs text-slate-600">
-                        Create your first session and add students to begin tracking.
                       </div>
                     </div>
                   </div>

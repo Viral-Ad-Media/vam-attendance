@@ -108,7 +108,7 @@ export default function ProfilePageClient() {
       const data = (await response.json()) as ProfileResponse;
       setProfile(data.profile);
       setOrganization(data.organization);
-      setRole(data.role);
+      setRole(data.role ?? "member");
       setDraft(toDraft(data.profile));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load profile");

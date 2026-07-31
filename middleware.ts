@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isSuperadminMetadata, normalizeOrgRole } from "@/lib/auth/roles";
 
 const protectedRoutes = [
   "/dashboard",
@@ -55,14 +56,6 @@ function readString(map: MetadataMap, key: string) {
   return typeof value === "string" ? value : null;
 }
 
-function readFirstRole(map: MetadataMap) {
-  const roles = map.roles;
-  if (Array.isArray(roles) && typeof roles[0] === "string") {
-    return roles[0];
-  }
-  return null;
-}
-
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
@@ -88,11 +81,29 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const appMeta = asMetadataMap(user?.app_metadata);
   const userMeta = asMetadataMap(user?.user_metadata);
-  const role =
-    readString(appMeta, "role") ||
-    readString(userMeta, "role") ||
-    readFirstRole(appMeta) ||
-    null;
+  const isSuperadmin = isSuperadminMetadata(readString(appMeta, "role") || readString(userMeta, "role"));
+
+  let role: string | null = null;
+  if (user) {
+    if (isSuperadmin) {
+      role = "superadmin";
+    } else {
+      const activeOrgId =
+        request.cookies.get("vam_active_org")?.value ||
+        readString(appMeta, "org_id") ||
+        readString(userMeta, "default_org_id") ||
+        null;
+      if (activeOrgId) {
+        const { data: membershipRow } = await supabase
+          .from("memberships")
+          .select("role")
+          .eq("org_id", activeOrgId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        role = normalizeOrgRole(membershipRow?.role as string | undefined);
+      }
+    }
+  }
 
   if (isProtected(pathname) && !user) {
     const loginUrl = new URL("/login", request.url);

@@ -1,6 +1,7 @@
 "use client";
 
 import { TopBar } from "@/components/dashboard/TopBar";
+import { SettingsTabs } from "@/components/dashboard/settings/SettingsTabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -82,6 +83,7 @@ export default function SettingsPage() {
   return (
     <div className="w-full">
       <TopBar title="Settings" subtitle="Preferences and security" />
+      <SettingsTabs />
 
       <div className="max-w-3xl space-y-6">
         {loading && (

@@ -2,12 +2,15 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { ApiError } from "./errors";
+import { isSuperadminMetadata, normalizeOrgRole, type EffectiveRole } from "@/lib/auth/roles";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export type RouteContext = {
   supabase: SupabaseClient;
   session: Session;
   orgId: string;
-  role: string | null;
+  role: EffectiveRole;
+  isSuperadmin: boolean;
   teacherId: string | null;
 };
 
@@ -23,14 +26,6 @@ function asMetadataMap(input: unknown): MetadataMap {
 function readString(map: MetadataMap, key: string): string | null {
   const value = map[key];
   return typeof value === "string" ? value : null;
-}
-
-function readFirstRole(map: MetadataMap): string | null {
-  const roles = map.roles;
-  if (Array.isArray(roles) && typeof roles[0] === "string") {
-    return roles[0];
-  }
-  return null;
 }
 
 function isUuid(value: string): boolean {
@@ -71,16 +66,20 @@ export async function getRouteContext(): Promise<RouteContext> {
 
   const appMeta = asMetadataMap(user.app_metadata);
   const userMeta = asMetadataMap(user.user_metadata);
+  const isSuperadmin = isSuperadminMetadata(readString(appMeta, "role") || readString(userMeta, "role"));
+
+  // Superadmins are not scoped to any single org's RLS policies — use the
+  // service-role client so they can read/write any organization's data.
+  const dataClient = isSuperadmin ? getServiceClient() : supabase;
+
   let orgId = readString(appMeta, "org_id") || readString(userMeta, "default_org_id") || cookieOrg;
 
-  // Fallback: pick the first org the user owns if metadata/cookie missing.
+  // Fallback: pick the first org the user owns (or, for superadmins with no
+  // org of their own, the first organization that exists at all).
   if (!orgId) {
-    const { data: orgRows, error: orgErr } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: true })
-      .limit(1);
+    const { data: orgRows, error: orgErr } = isSuperadmin
+      ? await dataClient.from("organizations").select("id").order("created_at", { ascending: true }).limit(1)
+      : await dataClient.from("organizations").select("id").eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1);
 
     if (orgErr) {
       // Surface the underlying RLS/permission issue
@@ -99,7 +98,7 @@ export async function getRouteContext(): Promise<RouteContext> {
 
   // Fallback 2: pick the first org where the user has a membership
   if (!orgId) {
-    const { data: memberRows, error: memberErr } = await supabase
+    const { data: memberRows, error: memberErr } = await dataClient
       .from("memberships")
       .select("org_id")
       .eq("user_id", user.id)
@@ -124,29 +123,39 @@ export async function getRouteContext(): Promise<RouteContext> {
     throw new ApiError("Organization not set for user", 400, "ORG_NOT_SET");
   }
 
-  // Never trust cookie/metadata alone: verify user can access this org.
-  const { data: membershipRow, error: membershipError } = await supabase
-    .from("memberships")
-    .select("id")
-    .eq("org_id", orgId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (membershipError) {
-    throw membershipError;
-  }
+  let orgRole: EffectiveRole = null;
 
-  if (!membershipRow) {
-    const { data: ownerRow, error: ownerError } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("id", orgId)
-      .eq("owner_id", user.id)
+  if (isSuperadmin) {
+    orgRole = "superadmin";
+  } else {
+    // Never trust cookie/metadata alone: verify user can access this org,
+    // and resolve their role for it from the membership row.
+    const { data: membershipRow, error: membershipError } = await dataClient
+      .from("memberships")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("user_id", user.id)
       .maybeSingle();
-    if (ownerError) {
-      throw ownerError;
+    if (membershipError) {
+      throw membershipError;
     }
-    if (!ownerRow) {
-      throw new ApiError("Forbidden: organization access denied", 403, "ORG_ACCESS_DENIED");
+
+    if (membershipRow) {
+      orgRole = normalizeOrgRole(membershipRow.role as string);
+    } else {
+      const { data: ownerRow, error: ownerError } = await dataClient
+        .from("organizations")
+        .select("id")
+        .eq("id", orgId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      if (ownerError) {
+        throw ownerError;
+      }
+      if (!ownerRow) {
+        throw new ApiError("Forbidden: organization access denied", 403, "ORG_ACCESS_DENIED");
+      }
+      orgRole = "admin";
     }
   }
 
@@ -158,15 +167,9 @@ export async function getRouteContext(): Promise<RouteContext> {
     throw new ApiError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
-  const role =
-    readString(appMeta, "role") ||
-    readString(userMeta, "role") ||
-    readFirstRole(appMeta) ||
-    null;
-
   let teacherId: string | null = null;
-  if (role === "teacher") {
-    const { data: teacherRow, error: teacherErr } = await supabase
+  if (orgRole === "teacher") {
+    const { data: teacherRow, error: teacherErr } = await dataClient
       .from("teachers")
       .select("id")
       .eq("org_id", orgId)
@@ -176,5 +179,12 @@ export async function getRouteContext(): Promise<RouteContext> {
     teacherId = teacherRow?.id ?? null;
   }
 
-  return { supabase, session, orgId: String(orgId), role, teacherId };
+  return {
+    supabase: dataClient,
+    session,
+    orgId: String(orgId),
+    role: orgRole,
+    isSuperadmin,
+    teacherId,
+  };
 }

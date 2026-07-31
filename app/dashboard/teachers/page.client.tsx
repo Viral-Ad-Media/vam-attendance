@@ -4,6 +4,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { SettingsTabs } from "@/components/dashboard/settings/SettingsTabs";
+import { MembersRolesPanel } from "@/components/dashboard/settings/MembersRolesPanel";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
 import { CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleTooltip } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import {
   Select,
   SelectContent,
@@ -367,7 +371,10 @@ export default function TeachersPage() {
 
   return (
     <div className="space-y-4">
-      <TopBar title="Teachers" subtitle="Manage your team" showAccountInTitle={false} />
+      <TopBar title="Team" subtitle="Manage your team" showAccountInTitle={false} />
+      <SettingsTabs />
+
+      <MembersRolesPanel />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
@@ -519,31 +526,49 @@ export default function TeachersPage() {
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => openTeacherEditForm(t)}
-                      title="Edit teacher"
-                      aria-label="Edit teacher"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="text-red-600 hover:bg-red-50"
-                      onClick={() => deleteTeacher(t)}
-                      title="Delete teacher"
-                      aria-label="Delete teacher"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <SimpleTooltip label="Edit teacher">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => openTeacherEditForm(t)}
+                        aria-label="Edit teacher"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </SimpleTooltip>
+                    <SimpleTooltip label="Delete teacher">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => deleteTeacher(t)}
+                        aria-label="Delete teacher"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </SimpleTooltip>
                   </div>
                 </div>
               ))}
               {!filtered.length && (
-                <div className="col-span-full rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-600">
-                  No teachers yet. Add a teacher to get started.
+                <div className="col-span-full">
+                  {query ? (
+                    <EmptyState
+                      icon={Users}
+                      title="No matches for your search"
+                      description={`No teachers match "${query}". Try a different name or email.`}
+                      actionLabel="Clear search"
+                      onAction={() => setQuery("")}
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={Users}
+                      title="No teachers yet"
+                      description="Add your first teacher to start scheduling sessions and tracking attendance."
+                      actionLabel="Add Teacher"
+                      onAction={openTeacherCreateForm}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -600,35 +625,50 @@ export default function TeachersPage() {
                     </td>
                     <td className="py-2 pr-0 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex flex-wrap justify-end gap-2">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => openTeacherEditForm(t)}
-                          title="Edit teacher"
-                          aria-label="Edit teacher"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className="text-red-600 hover:bg-red-50"
-                          onClick={() => deleteTeacher(t)}
-                          title="Delete teacher"
-                          aria-label="Delete teacher"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <SimpleTooltip label="Edit teacher">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => openTeacherEditForm(t)}
+                            aria-label="Edit teacher"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </SimpleTooltip>
+                        <SimpleTooltip label="Delete teacher">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={() => deleteTeacher(t)}
+                            aria-label="Delete teacher"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </SimpleTooltip>
                       </div>
                     </td>
                   </tr>
                 ))}
-                {!filtered.length && (
-                  <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={4}>
-                      No teachers yet.
-                    </td>
-                  </tr>
+                {!filtered.length && query && (
+                  <EmptyState
+                    icon={Users}
+                    title="No matches for your search"
+                    description={`No teachers match "${query}". Try a different name or email.`}
+                    actionLabel="Clear search"
+                    onAction={() => setQuery("")}
+                    colSpan={4}
+                  />
+                )}
+                {!filtered.length && !query && (
+                  <EmptyState
+                    icon={Users}
+                    title="No teachers yet"
+                    description="Add your first teacher to start scheduling sessions and tracking attendance."
+                    actionLabel="Add Teacher"
+                    onAction={openTeacherCreateForm}
+                    colSpan={4}
+                  />
                 )}
               </tbody>
             </table>

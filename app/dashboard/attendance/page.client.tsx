@@ -4,6 +4,7 @@
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Textarea from "@/components/ui/textarea";
-import { Loader, Pencil, Trash2 } from "lucide-react";
+import { Loader, Pencil, Trash2, ClipboardCheck } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { getAttendanceStatusColor } from "@/lib/helpers";
 import {
@@ -1741,14 +1742,14 @@ function AttendancePage() {
                         );
                       })}
                       {!filteredAttendance.length && (
-                        <tr>
-                          <td
-                            className="py-6 text-center text-slate-500"
-                            colSpan={6}
-                          >
-                            No attendance yet.
-                          </td>
-                        </tr>
+                        <EmptyState
+                          icon={ClipboardCheck}
+                          title="No attendance records yet"
+                          description="Attendance is recorded when you mark a session. Head to Sessions to get started."
+                          actionLabel="Go to Sessions"
+                          actionHref="/dashboard/sessions"
+                          colSpan={6}
+                        />
                       )}
                     </tbody>
                   </table>

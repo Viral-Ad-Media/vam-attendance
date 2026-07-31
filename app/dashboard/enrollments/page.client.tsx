@@ -5,6 +5,7 @@ import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { CreationChip, CreationDialog, CreationSection } from "@/components/dashboard/CreationDialog";
 import { PaginationControls } from "@/components/dashboard/PaginationControls";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -540,12 +541,25 @@ export default function EnrollmentsPage() {
                     </tr>
                   );
                 })}
-                {!filtered.length && (
-                  <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={6}>
-                      No enrollments found.
-                    </td>
-                  </tr>
+                {!filtered.length && query && (
+                  <EmptyState
+                    icon={UserPlus}
+                    title="No matches for your search"
+                    description={`No enrollments match "${query}".`}
+                    actionLabel="Clear search"
+                    onAction={() => setQuery("")}
+                    colSpan={6}
+                  />
+                )}
+                {!filtered.length && !query && (
+                  <EmptyState
+                    icon={UserPlus}
+                    title="No enrollments yet"
+                    description="Enroll a student in a course to start tracking their attendance."
+                    actionLabel="New Enrollment"
+                    onAction={openCreateEnrollmentDialog}
+                    colSpan={6}
+                  />
                 )}
               </tbody>
             </table>

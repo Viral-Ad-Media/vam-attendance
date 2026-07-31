@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { SettingsTabs } from "@/components/dashboard/settings/SettingsTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,6 +102,7 @@ export default function BillingPageClient() {
   return (
     <div className="space-y-4">
       <TopBar title="Billing" subtitle="Manage your organization subscription" />
+      <SettingsTabs />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
