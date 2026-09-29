@@ -2,7 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  
+
+  // Produces a minimal, self-contained .next/standalone build (only the
+  // files needed to run `node server.js`) — this is what the Dockerfile
+  // copies into the final image instead of the whole node_modules tree.
+  output: "standalone",
+
   // Security headers
   async headers() {
     return [
