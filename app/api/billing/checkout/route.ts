@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getRouteContext } from "@/lib/api/supabase";
+import { respondWithError } from "@/lib/api/errors";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
 import { getServiceClient } from "@/lib/supabase/service";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { logError } from "@/lib/telemetry";
@@ -32,7 +33,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { session, orgId: activeOrgId } = await getRouteContext();
+    const { session, orgId: activeOrgId, role } = await getRouteContext();
+    requireOrgAdmin(role);
     orgId = activeOrgId;
     const supabaseService = getServiceClient();
     const stripe = new Stripe(stripeSecret, { apiVersion: "2024-04-10" });
@@ -68,8 +70,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: checkoutSession.url }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Checkout failed";
     logError("stripe_checkout", error, { orgId: orgId ?? "unknown" });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respondWithError(error, { action: "billing" });
   }
 }

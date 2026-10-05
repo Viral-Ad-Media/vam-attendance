@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getRouteContext } from "@/lib/api/supabase";
+import { respondWithError } from "@/lib/api/errors";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
 import { getServiceClient } from "@/lib/supabase/service";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 
@@ -29,7 +30,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { session, orgId } = await getRouteContext();
+    const { session, orgId, role } = await getRouteContext();
+    requireOrgAdmin(role);
     const supabaseService = getServiceClient();
     const stripe = new Stripe(stripeSecret, { apiVersion: "2024-04-10" });
 
@@ -52,8 +54,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: portal.url, created_by: session.user.id });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Portal creation failed";
     console.error("Stripe portal error", error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respondWithError(error, { action: "billing" });
   }
 }

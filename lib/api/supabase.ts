@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { ApiError } from "./errors";
-import { isSuperadminMetadata, normalizeOrgRole, type EffectiveRole } from "@/lib/auth/roles";
+import { isPlatformSuperadmin, normalizeOrgRole, type EffectiveRole } from "@/lib/auth/roles";
 import { getServiceClient } from "@/lib/supabase/service";
 
 export type RouteContext = {
@@ -66,13 +66,13 @@ export async function getRouteContext(): Promise<RouteContext> {
 
   const appMeta = asMetadataMap(user.app_metadata);
   const userMeta = asMetadataMap(user.user_metadata);
-  const isSuperadmin = isSuperadminMetadata(readString(appMeta, "role") || readString(userMeta, "role"));
+  const isSuperadmin = isPlatformSuperadmin(user);
 
   // Superadmins are not scoped to any single org's RLS policies — use the
   // service-role client so they can read/write any organization's data.
   const dataClient = isSuperadmin ? getServiceClient() : supabase;
 
-  let orgId = readString(appMeta, "org_id") || readString(userMeta, "default_org_id") || cookieOrg;
+  let orgId = cookieOrg || readString(appMeta, "org_id") || readString(userMeta, "default_org_id");
 
   // Fallback: pick the first org the user owns (or, for superadmins with no
   // org of their own, the first organization that exists at all).
@@ -181,10 +181,33 @@ export async function getRouteContext(): Promise<RouteContext> {
 
   return {
     supabase: dataClient,
-    session,
+    session: { ...session, user },
     orgId: String(orgId),
     role: orgRole,
     isSuperadmin,
     teacherId,
   };
+}
+
+/** Required before any service-role operation on behalf of an org member. */
+export function requireOrgAdmin(role: EffectiveRole): void {
+  if (role !== "admin" && role !== "superadmin") {
+    throw new ApiError("Forbidden: administrator access required", 403, "ADMIN_REQUIRED");
+  }
+}
+
+/** Validate session visibility and ownership before mutations or email side effects. */
+export async function requireSessionAccess(context: RouteContext, sessionId: string, write = false): Promise<void> {
+  if (write && context.role !== "admin" && context.role !== "superadmin" && context.role !== "teacher") {
+    throw new ApiError("Forbidden", 403, "WRITE_ACCESS_DENIED");
+  }
+  let query = context.supabase.from("sessions").select("id")
+    .eq("org_id", context.orgId).eq("id", sessionId);
+  if (context.role === "teacher") {
+    if (!context.teacherId) throw new ApiError("Session not found", 404, "SESSION_NOT_FOUND");
+    query = query.eq("teacher_id", context.teacherId);
+  }
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!data) throw new ApiError("Session not found", 404, "SESSION_NOT_FOUND");
 }

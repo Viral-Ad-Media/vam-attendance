@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { getServiceClient } from "@/lib/supabase/service";
 import { sendTeacherSetupEmail } from "@/lib/api/teacher-setup-email";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, respondWithError } from "@/lib/api/errors";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
   password: z.string().min(8).optional(),
-  user_id: z.string().uuid().optional(),
   sendPasswordSetup: z.boolean().optional(),
 });
 
@@ -31,22 +30,6 @@ function getSetupEmailErrorMessage(error: unknown) {
   return "Unknown setup email error.";
 }
 
-function handleError(error: unknown) {
-  if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
-  }
-  if (error instanceof Error) {
-    if (error.message === "unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error.message === "org_not_set") {
-      return NextResponse.json({ error: "Organization not set on user" }, { status: 400 });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ error: "Unexpected error" }, { status: 500 });
-}
-
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -61,7 +44,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     if (error) throw error;
     return NextResponse.json(data);
   } catch (error) {
-    return handleError(error);
+    return respondWithError(error, { action: "teacher" });
   }
 }
 
@@ -70,7 +53,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { supabase, session, orgId, role } = await getRouteContext();
+    requireOrgAdmin(role);
     const service = getServiceClient();
 
     const { sendPasswordSetup, password, ...teacherUpdates } = payload;
@@ -168,14 +152,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       setup_email_error: setupEmailError,
     });
   } catch (error) {
-    return handleError(error);
+    return respondWithError(error, { action: "teacher" });
   }
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId } = await getRouteContext();
+    const { supabase, session, orgId, role } = await getRouteContext();
+    requireOrgAdmin(role);
     const service = getServiceClient();
 
     const { data: teacherRow, error: teacherLookupError } = await supabase
@@ -216,6 +201,6 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     await logAudit(supabase, orgId, session.user.id, "delete", "teacher", id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    return handleError(error);
+    return respondWithError(error, { action: "teacher" });
   }
 }

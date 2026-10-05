@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { ApiError, respondWithError } from "@/lib/api/errors";
@@ -61,7 +61,8 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = teacherSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { supabase, session, orgId, role } = await getRouteContext();
+    requireOrgAdmin(role);
     const service = getServiceClient();
 
     const teacherEmail = payload.email.trim().toLowerCase();
