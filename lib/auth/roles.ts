@@ -38,3 +38,8 @@ export function canManageMembers(actorRole: EffectiveRole): boolean {
 export function canGrantSuperadmin(actorRole: EffectiveRole): boolean {
   return actorRole === "superadmin";
 }
+
+/** Platform privileges must come only from server-managed app metadata. */
+export function isPlatformSuperadmin(user: { app_metadata?: Record<string, unknown> } | null | undefined): boolean {
+  return user?.app_metadata?.role === "superadmin";
+}

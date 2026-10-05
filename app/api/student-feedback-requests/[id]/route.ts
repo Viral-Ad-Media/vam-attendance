@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin, requireSessionAccess } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 import { resendAttendanceFeedbackRequest } from "@/lib/api/student-feedback-email";
@@ -15,8 +15,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
   try {
     const { id } = await params;
     const body = await request.json();
-    const payload = actionSchema.parse(body);
-    const { supabase, orgId, session } = await getRouteContext();
+    actionSchema.parse(body);
+    const context = await getRouteContext();
+    const { supabase, orgId, session, role } = context;
 
     const { data: requestRow, error: requestError } = await supabase
       .from("student_feedback_requests")
@@ -29,6 +30,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
       return NextResponse.json({ error: "Feedback request not found" }, { status: 404 });
     }
 
+    if (role === "teacher") {
+      await requireSessionAccess(context, requestRow.session_id, true);
+    } else {
+      requireOrgAdmin(role);
+    }
     const result = await resendAttendanceFeedbackRequest(id, orgId);
     await logAudit(supabase, orgId, session.user.id, "resend", "student_feedback_request", id, {
       request_id: id,

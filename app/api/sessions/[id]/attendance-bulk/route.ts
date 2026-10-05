@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext, requireSessionAccess } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 
@@ -17,7 +17,9 @@ const bulkSchema = z.object({
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, orgId } = await getRouteContext();
+    const context = await getRouteContext();
+    await requireSessionAccess(context, id);
+    const { supabase, orgId } = context;
 
     const [sessionRes, enrollmentsRes, attendanceRes] = await Promise.all([
       supabase.from("sessions").select("*").eq("org_id", orgId).eq("id", id).single(),
@@ -48,12 +50,13 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
     let relevantStudents = enrollments;
     if (courseId) {
-      const { data: courseEnrollments } = await supabase
+      const { data: courseEnrollments, error: courseEnrollmentsError } = await supabase
         .from("enrollments")
         .select("student_id")
         .eq("org_id", orgId)
         .eq("course_id", courseId)
         .in("status", ["active"]);
+      if (courseEnrollmentsError) throw courseEnrollmentsError;
       const courseStudentIds = new Set((courseEnrollments ?? []).map((e) => e.student_id));
       relevantStudents = enrollments.filter((e) => courseStudentIds.has(e.student_id));
     }
@@ -79,16 +82,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params;
     const body = await request.json();
     const { records } = bulkSchema.parse(body);
-    const { supabase, session: authSession, orgId } = await getRouteContext();
-
-    // Verify session belongs to org
-    const { error: sessErr } = await supabase
-      .from("sessions")
-      .select("id")
-      .eq("org_id", orgId)
-      .eq("id", id)
-      .single();
-    if (sessErr) throw sessErr;
+    const context = await getRouteContext();
+    await requireSessionAccess(context, id, true);
+    const { supabase, session: authSession, orgId } = context;
 
     const rows = records.map((r) => ({
       org_id: orgId,

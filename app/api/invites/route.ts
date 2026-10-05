@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
-import { getServiceClient } from "@/lib/supabase/service";
 import { sendInviteEmail } from "@/lib/api/invite-email";
 import { randomBytes } from "crypto";
 
@@ -14,7 +13,8 @@ const inviteSchema = z.object({
 
 export async function GET() {
   try {
-    const { supabase, orgId } = await getRouteContext();
+    const { supabase, orgId, role } = await getRouteContext();
+    requireOrgAdmin(role);
     const { data, error } = await supabase
       .from("invites")
       .select("*")
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const payload = inviteSchema.parse(body);
-    const { supabase, orgId, session } = await getRouteContext();
-    const service = getServiceClient();
+    const { supabase, orgId, session, role } = await getRouteContext();
+    requireOrgAdmin(role);
 
     const inviteEmail = payload.email.trim().toLowerCase();
     const { data: orgData } = await supabase

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { isSuperadminMetadata, normalizeOrgRole } from "@/lib/auth/roles";
+import { isPlatformSuperadmin, normalizeOrgRole } from "@/lib/auth/roles";
 
 const protectedRoutes = [
   "/dashboard",
@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const appMeta = asMetadataMap(user?.app_metadata);
   const userMeta = asMetadataMap(user?.user_metadata);
-  const isSuperadmin = isSuperadminMetadata(readString(appMeta, "role") || readString(userMeta, "role"));
+  const isSuperadmin = isPlatformSuperadmin(user);
 
   let role: string | null = null;
   if (user) {
@@ -119,7 +119,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  if (user) {
+  if (user && !request.cookies.get("vam_active_org")?.value) {
     const orgId = readString(appMeta, "org_id") || readString(userMeta, "default_org_id") || null;
     const orgName = readString(appMeta, "org_name") || readString(userMeta, "org_name") || "Primary Organization";
 
