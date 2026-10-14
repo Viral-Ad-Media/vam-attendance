@@ -1,8 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BarChart3, CheckCircle2, Clock, Shield, Users, Zap } from "lucide-react";
+import { ArrowRight, BarChart3, CheckCircle2, Clock, Shield, Users, Zap } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { CtaBand } from "@/components/marketing/CtaBand";
 
 export const metadata = {
   title: "VAM Attendance - Attendance Management Made Easy",
@@ -15,37 +16,52 @@ const features = [
     icon: Clock,
     title: "Real-time tracking",
     description: "Record attendance in seconds and keep everyone synced across devices.",
-    tone: "text-primary",
+    tone: "bg-primary/10 text-primary",
   },
   {
     icon: BarChart3,
     title: "Actionable reports",
     description: "Spot trends and follow up quickly with structured attendance analytics.",
-    tone: "text-emerald-600",
+    tone: "bg-emerald-50 text-emerald-600",
   },
   {
     icon: Users,
     title: "Team-ready workflows",
     description: "Coordinate teachers, courses, and classes from one clean workspace.",
-    tone: "text-indigo-600",
+    tone: "bg-indigo-50 text-indigo-600",
   },
   {
     icon: Zap,
     title: "Fast operations",
     description: "Keep sessions moving with low-friction forms and quick shortcuts.",
-    tone: "text-amber-600",
+    tone: "bg-amber-50 text-amber-600",
   },
   {
     icon: Shield,
     title: "Secure by design",
     description: "Protect attendance records with role-aware access and robust auth.",
-    tone: "text-teal-600",
+    tone: "bg-teal-50 text-teal-600",
   },
   {
     icon: CheckCircle2,
     title: "Simple onboarding",
     description: "Start with your current roster and move your team in without friction.",
-    tone: "text-blue-600",
+    tone: "bg-blue-50 text-blue-600",
+  },
+];
+
+const steps = [
+  {
+    title: "Set up your workspace",
+    description: "Add courses, teachers, and students — or import your current roster.",
+  },
+  {
+    title: "Schedule and mark sessions",
+    description: "Put classes on the calendar and record attendance in a couple of clicks.",
+  },
+  {
+    title: "Follow up with confidence",
+    description: "Spot at-risk students and review trends before small gaps become big ones.",
   },
 ];
 
@@ -79,13 +95,14 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/signup"
-                className="inline-flex h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
+                className="inline-flex h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
               >
                 Start Free Trial
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
               <Link
                 href="/features"
-                className="inline-flex h-11 items-center rounded-lg border border-white/30 bg-white/10 px-5 text-sm font-semibold text-white transition hover:bg-white/15"
+                className="inline-flex h-11 items-center rounded-lg border border-white/30 bg-white/10 px-5 text-sm font-semibold text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
               >
                 Explore Features
               </Link>
@@ -120,8 +137,10 @@ export default function Home() {
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
-              <article key={feature.title} className="glass-card p-5">
-                <Icon className={`h-8 w-8 ${feature.tone}`} />
+              <article key={feature.title} className="glass-card card-hover p-6">
+                <span className={`icon-chip ${feature.tone}`}>
+                  <Icon className="h-5 w-5" />
+                </span>
                 <h3 className="mt-4 text-lg font-semibold text-slate-900">{feature.title}</h3>
                 <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
               </article>
@@ -130,20 +149,33 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="marketing-shell pb-16 sm:pb-20 lg:pb-24">
-        <div className="rounded-lg bg-slate-950 px-6 py-10 text-center text-white sm:px-10">
-          <h2 className="text-3xl font-semibold sm:text-4xl">Ready for a cleaner attendance workflow?</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-slate-200">
-            Launch in minutes and give your team a dashboard that is easier to read and faster to use.
-          </p>
-          <Link
-            href="/signup"
-            className="mt-7 inline-flex h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-          >
-            Create Account
-          </Link>
+      <section className="border-y border-slate-200/70 bg-white/60">
+        <div className="marketing-shell marketing-section">
+          <div className="mb-10 text-center">
+            <span className="section-eyebrow">How it works</span>
+            <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">From roster to insight in three steps</h2>
+          </div>
+          <ol className="grid gap-6 md:grid-cols-3">
+            {steps.map((step, index) => (
+              <li key={step.title} className="relative rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white">
+                  {index + 1}
+                </span>
+                <h3 className="mt-4 text-lg font-semibold text-slate-900">{step.title}</h3>
+                <p className="mt-2 text-sm text-slate-600">{step.description}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
+
+      <div className="pt-16 sm:pt-20 lg:pt-24">
+        <CtaBand
+          title="Ready for a cleaner attendance workflow?"
+          description="Launch in minutes and give your team a dashboard that is easier to read and faster to use."
+          primary={{ label: "Create Account", href: "/signup" }}
+        />
+      </div>
 
       <Footer />
     </div>
