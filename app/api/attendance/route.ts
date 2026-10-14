@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext, requireSessionAccess } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
@@ -94,7 +94,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = attendanceSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const context = await getRouteContext();
+    await requireSessionAccess(context, payload.session_id, true);
+    const { supabase, session, orgId } = context;
 
     const { data, error } = await supabase
       .from("attendance")

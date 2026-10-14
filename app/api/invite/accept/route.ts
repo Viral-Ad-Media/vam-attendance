@@ -68,7 +68,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user's email matches invite email (if different, warn but allow)
+    if (!user.email_confirmed_at || user.email?.trim().toLowerCase() !== invite.email.trim().toLowerCase()) {
+      throw new ApiError("Sign in with the verified email address this invitation was sent to", 403, "INVITE_EMAIL_MISMATCH");
+    }
+
+    // Existing memberships must not be promoted or demoted by replayed invites.
     const nowIso = new Date().toISOString();
 
     // Create or update membership for the invited user
@@ -82,7 +86,7 @@ export async function POST(request: NextRequest) {
           invited_by: invite.invited_by,
           accepted_at: nowIso,
         },
-      ]);
+      ], { onConflict: "org_id,user_id", ignoreDuplicates: true });
 
     if (membershipError) throw membershipError;
 
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Log audit event
     try {
-      await logAudit(service as any, invite.org_id, user.id, "accept", "invite", invite.id, {
+      await logAudit(service, invite.org_id, user.id, "accept", "invite", invite.id, {
         email: invite.email,
         role: invite.role,
       });
