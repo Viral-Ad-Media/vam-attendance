@@ -377,12 +377,12 @@ export default function TeachersPage() {
       <MembersRolesPanel />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle>Teacher Directory</CardTitle>
             <p className="text-sm text-slate-600">View all instructors in your organization.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
               <Button
                 size="sm"
@@ -408,7 +408,7 @@ export default function TeachersPage() {
                 setQuery(e.target.value);
                 setTeacherPage(1);
               }}
-              className="w-56"
+              className="w-full sm:w-56"
             />
             <Button variant="secondary" onClick={() => setOpenCourse(true)}>
               <Plus className="h-4 w-4" />
@@ -575,7 +575,8 @@ export default function TeachersPage() {
           )}
 
           {!loading && !error && viewMode === "list" && (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
                   <th className="w-10 py-2 pr-3">
@@ -672,6 +673,7 @@ export default function TeachersPage() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
           {!loading && !error && filtered.length > 0 && (
             <PaginationControls
@@ -690,10 +692,10 @@ export default function TeachersPage() {
       </Card>
 
       {openCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenCourse(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={() => setOpenCourse(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-2xl rounded-lg border bg-white p-4 shadow-xl"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

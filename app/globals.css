@@ -3,6 +3,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+  --breakpoint-xs: 30rem;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -175,7 +179,7 @@
   }
 
   thead th {
-    @apply bg-slate-50/80 text-[12px] font-semibold uppercase tracking-wide text-slate-500;
+    @apply whitespace-nowrap bg-slate-50/80 text-[12px] font-semibold uppercase tracking-wide text-slate-500;
   }
 
   th,

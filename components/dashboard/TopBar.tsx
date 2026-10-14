@@ -33,11 +33,13 @@ export function TopBar({
     ? (mounted ? (accountId === "all" ? "All Accounts" : `Account ID: ${accountId}`) : "All Accounts")
     : (subtitle ?? "Dashboard");
 
+  // Account label is read from cookies on the client only, so derive the
+  // initials after mount to keep the server and client markup identical.
   const initials = React.useMemo(() => {
-    const s = (accountLabel || "Viral Ad Media").trim();
+    const s = (mounted ? accountLabel : "").trim() || "Viral Ad Media";
     const parts = s.split(/\s+/).slice(0, 2);
     return parts.map(p => p[0]?.toUpperCase() ?? "").join("") || "VA";
-  }, [accountLabel]);
+  }, [accountLabel, mounted]);
 
   const onLogout = async () => {
     try {
@@ -50,8 +52,8 @@ export function TopBar({
   };
 
   return (
-    <div className="sticky top-0 z-20 -mx-3 border-b border-slate-200 bg-slate-50/95 backdrop-blur sm:-mx-5 lg:-mx-7">
-      <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:flex-nowrap sm:px-5 lg:px-7">
+    <div className="sticky top-12 z-20 -mx-3 border-b border-slate-200 bg-slate-50/95 backdrop-blur sm:-mx-5 lg:top-0 lg:-mx-7">
+      <div className="flex items-center gap-3 px-3 py-3 sm:px-5 lg:px-7">
         {/* Left: Title / Subtitle */}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-slate-500">
@@ -63,19 +65,19 @@ export function TopBar({
         </div>
 
         {/* Right: Profile menu only (thresholds moved to ControlsBar) */}
-        <div className="w-full sm:w-auto sm:ml-auto flex items-center justify-between sm:justify-end gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 aria-label="Open profile menu"
                 className={cn(
                   "inline-flex items-center gap-2 rounded-lg border border-slate-200",
-                  "w-full justify-between bg-white px-2.5 py-1.5 text-slate-700 shadow-sm transition hover:bg-slate-50 sm:w-auto sm:justify-center"
+                  "bg-white px-2.5 py-1.5 text-slate-700 shadow-sm transition hover:bg-slate-50"
                 )}
               >
                 <Avatar className="h-7 w-7">
                   <AvatarImage src="/avatar.png" alt="Profile" />
-                  <AvatarFallback>{initials}</AvatarFallback>
+                  <AvatarFallback suppressHydrationWarning>{initials}</AvatarFallback>
                 </Avatar>
                 <ChevronDown className="h-4 w-4 text-slate-500" />
               </button>

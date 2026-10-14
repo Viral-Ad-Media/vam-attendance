@@ -429,10 +429,10 @@ export default function TeacherProfilePageClient() {
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Users className="h-7 w-7" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h1 className="text-2xl font-semibold text-slate-950">{teacher.name}</h1>
-                    <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-600">
-                      <Mail className="h-4 w-4 text-slate-400" />
+                    <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 break-all text-sm text-slate-600">
+                      <Mail className="h-4 w-4 shrink-0 text-slate-400" />
                       {teacher.email}
                     </p>
                   </div>
@@ -457,7 +457,7 @@ export default function TeacherProfilePageClient() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <CardTitle className="text-base">Students Still In Training</CardTitle>
               </CardHeader>
@@ -513,13 +513,13 @@ export default function TeacherProfilePageClient() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <CardTitle className="text-base">Assigned Courses And Enrollment Load</CardTitle>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 {courseSummaries.length ? (
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[420px] text-sm">
                     <thead>
                       <tr className="text-left text-slate-500">
                         <th className="py-2 pr-3">Course</th>

@@ -377,7 +377,7 @@ export default function EnrollmentsPage() {
                   setQuery(e.target.value);
                   setEnrollmentPage(1);
                 }}
-                className="h-9 w-[260px]"
+                className="h-9 w-full sm:w-[260px]"
               />
               <Button onClick={openCreateEnrollmentDialog}>+ New Enrollment</Button>
             </div>
@@ -474,7 +474,8 @@ export default function EnrollmentsPage() {
                 </div>
               ) : null}
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
                   <th className="w-10 py-2 pr-3">
@@ -563,6 +564,7 @@ export default function EnrollmentsPage() {
                 )}
               </tbody>
             </table>
+            </div>
             {filtered.length > 0 && (
               <PaginationControls
                 page={enrollmentPage}
@@ -764,10 +766,10 @@ export default function EnrollmentsPage() {
       </CreationDialog>
 
       {openEditEnrollment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditEnrollment(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={() => setOpenEditEnrollment(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

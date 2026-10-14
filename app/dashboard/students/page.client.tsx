@@ -606,7 +606,7 @@ export default function StudentsPage() {
                 <p className="text-xs text-slate-500">Manage student records</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="w-[220px]">
+                <div className="w-full sm:w-[220px]">
                   <Select
                     value={teacherFilter}
                     onValueChange={(value) => {
@@ -627,7 +627,7 @@ export default function StudentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-[200px]">
+                <div className="w-full sm:w-[200px]">
                   <Select value={viewMode} onValueChange={(v: "grid" | "list") => setViewMode(v)}>
                     <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="View mode" />
@@ -645,7 +645,7 @@ export default function StudentsPage() {
                     setQuery(e.target.value);
                     setStudentPage(1);
                   }}
-                  className="h-9 w-[260px]"
+                  className="h-9 w-full sm:w-[260px]"
                 />
                 <Button onClick={openCreateStudentDialog}>
                   <Plus className="h-4 w-4" />
@@ -705,7 +705,8 @@ export default function StudentsPage() {
                 </div>
               )}
               {viewMode === "list" ? (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
                   <thead>
                     <tr className="text-left text-slate-500">
                       <th className="w-10 py-2 pr-3">
@@ -829,6 +830,7 @@ export default function StudentsPage() {
                     )}
                   </tbody>
                 </table>
+                </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {paginatedStudents.map((s) => (
