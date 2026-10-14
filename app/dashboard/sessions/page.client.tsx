@@ -282,17 +282,17 @@ export default function SessionsPage() {
       )}
 
       <Card>
-        <CardHeader className="flex items-center justify-between pb-2">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3 pb-2">
           <div>
             <CardTitle className="text-sm font-semibold text-slate-800">Sessions</CardTitle>
             <p className="text-xs text-slate-500">View all scheduled sessions and attendance counts.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button onClick={() => setOpenNew(true)} className="gap-1">
               <Plus className="h-4 w-4" />
               New Session
             </Button>
-            <div className="w-[190px]">
+            <div className="w-full sm:w-[190px]">
               <Select
                 value={teacherFilter}
                 onValueChange={(value) => {
@@ -346,7 +346,8 @@ export default function SessionsPage() {
           )}
           {!loading && !error && viewMode === "list" && (
             <div>
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="text-left text-slate-500">
                     <th className="py-2 pr-3">Title</th>
@@ -366,7 +367,7 @@ export default function SessionsPage() {
                     const status = getSessionStatus(s.starts_at);
                     return (
                       <tr key={s.id} className="border-t">
-                        <td className="py-2 pr-3">{s.title ?? "Session"}</td>
+                        <td className="min-w-[200px] py-2 pr-3">{s.title ?? "Session"}</td>
                         <td className="py-2 pr-3">{s.teacher_id ? tMap.get(s.teacher_id) ?? "—" : "—"}</td>
                         <td className="py-2 pr-3">
                           {new Date(s.starts_at).toLocaleString(undefined, {
@@ -430,6 +431,7 @@ export default function SessionsPage() {
                   )}
                 </tbody>
               </table>
+              </div>
               {filteredSessions.length > 0 && (
                 <PaginationControls
                   page={sessionPage}
@@ -482,6 +484,8 @@ export default function SessionsPage() {
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
+              <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+              <div className="min-w-[700px] space-y-2">
               <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-slate-500">
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                   <div key={d} className="text-center">
@@ -575,16 +579,18 @@ export default function SessionsPage() {
                   );
                 })}
               </div>
+              </div>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
       {openEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEdit(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={() => setOpenEdit(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -663,10 +669,10 @@ export default function SessionsPage() {
       )}
 
       {openNew && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenNew(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={() => setOpenNew(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-md rounded-lg border bg-white p-4 shadow-xl"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-white p-4 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

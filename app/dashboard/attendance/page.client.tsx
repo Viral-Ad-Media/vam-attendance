@@ -1321,7 +1321,7 @@ function AttendancePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto pt-0">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
                   <th className="py-2 pr-3">Name</th>
@@ -1398,7 +1398,7 @@ function AttendancePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto pt-0">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
                   <th className="py-2 pr-3">Name</th>
@@ -1483,8 +1483,8 @@ function AttendancePage() {
                 <CardTitle className="text-sm font-semibold flex-1 min-w-[140px]">
                   Attendance ({viewMode === "list" ? "List" : "Calendar"} view)
                 </CardTitle>
-                <div className="flex items-center gap-2">
-                  <div className="w-[200px]">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                  <div className="w-full sm:w-[200px]">
                     <Select
                       value={studentFilter}
                       onValueChange={(value) => {
@@ -1523,7 +1523,7 @@ function AttendancePage() {
                       Calendar
                     </Button>
                   </div>
-                  <div className="flex-1 min-w-[180px] max-w-[260px]">
+                  <div className="w-full min-w-0 sm:w-[240px]">
                     <Input
                       placeholder="Search student / email / program…"
                       value={query}
@@ -1640,7 +1640,8 @@ function AttendancePage() {
                     ) : null}
                   </div>
 
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[660px] text-sm">
                     <thead>
                       <tr className="text-left text-slate-500">
                         <th className="w-10 py-2 pr-3">
@@ -1676,7 +1677,7 @@ function AttendancePage() {
                                 onCheckedChange={(checked) => toggleAttendanceSelection(a.id, checked)}
                               />
                             </td>
-                            <td className="py-2 pr-3">
+                            <td className="min-w-[220px] py-2 pr-3">
                               {sess ? (
                                 <button
                                   type="button"
@@ -1753,6 +1754,7 @@ function AttendancePage() {
                       )}
                     </tbody>
                   </table>
+                  </div>
                   {filteredAttendance.length > 0 && (
                     <PaginationControls
                       page={attendancePage}
@@ -1810,6 +1812,8 @@ function AttendancePage() {
                     <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400 inline-block" /> 60–85%</span>
                     <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-red-400 inline-block" /> &lt;60%</span>
                   </div>
+                  <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+                  <div className="min-w-[700px] space-y-2">
                   <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-slate-500">
                     {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                       <div key={d} className="text-center">
@@ -1906,6 +1910,8 @@ function AttendancePage() {
                         </div>
                       );
                     })}
+                  </div>
+                  </div>
                   </div>
                 </div>
               )}

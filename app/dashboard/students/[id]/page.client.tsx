@@ -437,11 +437,11 @@ export default function StudentProfilePageClient() {
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <GraduationCap className="h-7 w-7" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h1 className="text-2xl font-semibold text-slate-950">{student.name}</h1>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-600">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Mail className="h-4 w-4 text-slate-400" />
+                      <span className="inline-flex min-w-0 items-center gap-1.5 break-all">
+                        <Mail className="h-4 w-4 shrink-0 text-slate-400" />
                         {student.email ?? "No email"}
                       </span>
                       <span className="inline-flex items-center gap-1.5">
@@ -472,7 +472,7 @@ export default function StudentProfilePageClient() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <CardTitle className="text-base">Enrollments</CardTitle>
               </CardHeader>
@@ -523,7 +523,7 @@ export default function StudentProfilePageClient() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base">Attendance History</CardTitle>
@@ -536,7 +536,7 @@ export default function StudentProfilePageClient() {
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 {attendanceRows.length ? (
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[480px] text-sm">
                     <thead>
                       <tr className="text-left text-slate-500">
                         <th className="py-2 pr-3">Session</th>

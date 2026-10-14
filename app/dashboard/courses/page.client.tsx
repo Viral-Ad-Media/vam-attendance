@@ -364,7 +364,7 @@ export default function CoursesPage() {
                     setQuery(e.target.value);
                     setCoursePage(1);
                   }}
-                  className="h-9 w-[220px]"
+                  className="h-9 w-full sm:w-[220px]"
                 />
                 <Button onClick={openNewCourseDialog}>
                   + New Course
@@ -510,7 +510,7 @@ export default function CoursesPage() {
               <p className="text-xs text-slate-500">Totals by course</p>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[480px] text-sm">
                 <thead>
                   <tr className="text-left text-slate-500">
                     <th className="py-2 pr-3">Course</th>

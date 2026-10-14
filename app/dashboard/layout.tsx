@@ -19,16 +19,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <ToastProvider>
       <TooltipProvider delayDuration={300}>
       <AccountProvider>
-        {/* Mobile nav trigger */}
-        <button
-          type="button"
-          className="fixed left-3 top-3 z-30 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 lg:hidden"
-          onClick={() => setMobileNavOpen(true)}
-        >
-          <Menu className="h-4 w-4" />
-          Menu
-        </button>
-
         {/* Mobile drawer */}
         <div
           className={cn(
@@ -60,11 +50,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </aside>
 
           {/* Content with slightly tighter gutters (but still breathing) */}
-          <main className="flex-1 min-w-0 px-3 pb-7 pt-14 sm:px-5 lg:px-7 lg:pt-5">
-            {/* Thresholds state for TopBar menu + tables/charts */}
-            
-              {children}
-        
+          <main className="flex-1 min-w-0 px-3 pb-7 sm:px-5 lg:px-7 lg:pt-5">
+            {/* Mobile nav bar: in-flow and sticky so it never overlaps page headers */}
+            <div className="sticky top-0 z-30 -mx-3 mb-3 flex h-12 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur sm:-mx-5 sm:px-5 lg:hidden">
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open navigation menu"
+                aria-expanded={mobileNavOpen}
+              >
+                <Menu className="h-4 w-4" />
+                Menu
+              </button>
+              <span className="truncate text-sm font-semibold text-slate-900">VAM Attendance</span>
+            </div>
+
+            {children}
           </main>
         </div>
       </AccountProvider>
