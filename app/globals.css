@@ -174,6 +174,25 @@
     @apply rounded-lg border border-slate-200 bg-white shadow-sm;
   }
 
+  /* Soft teal/amber glow with a faint grid, used behind marketing page heroes. */
+  .marketing-hero-bg {
+    background-image:
+      radial-gradient(60% 60% at 50% 0%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 70%),
+      radial-gradient(40% 40% at 90% 10%, color-mix(in oklab, oklch(0.8 0.12 78) 18%, transparent), transparent 70%),
+      linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+  }
+
+  .icon-chip {
+    @apply flex h-11 w-11 items-center justify-center rounded-xl;
+  }
+
+  .card-hover {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md;
+  }
+
   table {
     @apply w-full border-separate border-spacing-0;
   }

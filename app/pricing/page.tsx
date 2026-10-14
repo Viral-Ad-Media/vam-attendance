@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { PageHero } from "@/components/marketing/PageHero";
+import { CtaBand } from "@/components/marketing/CtaBand";
 
 export const metadata = {
   title: "Pricing - VAM Attendance",
@@ -53,25 +55,48 @@ const plans = [
   },
 ];
 
+const faqs = [
+  {
+    question: "How does billing work?",
+    answer:
+      "Subscriptions and payment details are handled securely through Stripe. Admins can update cards and view invoices from Settings → Billing.",
+  },
+  {
+    question: "Can I cancel my plan?",
+    answer: "Yes. Use the billing portal under Settings → Billing to manage or cancel your subscription.",
+  },
+  {
+    question: "Who can see attendance data?",
+    answer:
+      "Access is role-based. Admins manage the whole organization, while teachers only see the sessions and attendance records that belong to them.",
+  },
+  {
+    question: "Can I export my data?",
+    answer: "Yes. Import and export tools let you move student and attendance data in and out for reports and audits.",
+  },
+  {
+    question: "Our school needs something custom.",
+    answer: "The Enterprise plan is built for that. Reach out through the contact page and we will tailor it with you.",
+  },
+];
+
 export default function PricingPage() {
   return (
     <div className="min-h-screen">
       <Header />
 
-      <section className="marketing-shell marketing-section text-center">
-        <span className="section-eyebrow">Transparent plans</span>
-        <h1 className="soft-title">Simple pricing that scales with your school</h1>
-        <p className="soft-subtitle mx-auto mt-4 max-w-3xl">
-          Start small, expand as needed, and keep attendance operations consistent across teams.
-        </p>
-      </section>
+      <PageHero
+        eyebrow="Transparent plans"
+        title="Simple pricing that scales with your school"
+        description="Start small, expand as needed, and keep attendance operations consistent across teams."
+      />
 
-      <section className="marketing-shell pb-16 sm:pb-20 lg:pb-24">
-        <div className="grid gap-5 md:grid-cols-3">
+      <section className="marketing-shell py-14 sm:py-16 lg:py-20">
+        <div className="grid items-stretch gap-6 md:grid-cols-3">
           {plans.map((plan) => (
             <article
               key={plan.name}
-              className={`glass-card relative p-6 ${plan.highlighted ? "border-primary shadow-md ring-1 ring-primary/20" : ""}`}
+              className={`glass-card relative flex flex-col p-6 sm:p-7 ${plan.highlighted ? "border-primary shadow-lg ring-1 ring-primary/20 md:-translate-y-2" : "card-hover"}`}
             >
               {plan.highlighted && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
@@ -86,7 +111,7 @@ export default function PricingPage() {
               </div>
               <Link
                 href={plan.name === "Enterprise" ? "/contact" : "/signup"}
-                className={`mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
+                className={`mt-6 inline-flex h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                   plan.highlighted
                     ? "bg-primary text-white hover:brightness-105"
                     : "border border-slate-300 bg-white/85 text-slate-800 hover:bg-slate-50"
@@ -94,10 +119,10 @@ export default function PricingPage() {
               >
                 {plan.cta}
               </Link>
-              <ul className="mt-5 space-y-2">
+              <ul className="mt-6 space-y-3 border-t border-slate-100 pt-6">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-center gap-2 text-sm text-slate-700">
-                    <Check className="h-4 w-4 text-primary" />
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -106,6 +131,33 @@ export default function PricingPage() {
           ))}
         </div>
       </section>
+
+
+      <section className="border-y border-slate-200/70 bg-white/60">
+        <div className="marketing-shell marketing-section">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-8 text-center">
+              <span className="section-eyebrow">FAQ</span>
+              <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Questions, answered</h2>
+            </div>
+            <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white shadow-sm">
+              {faqs.map((faq) => (
+                <details key={faq.question} className="group px-5 py-4 [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left font-semibold text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                    {faq.question}
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{faq.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="pt-16 sm:pt-20 lg:pt-24">
+        <CtaBand title="Not sure which plan fits?" description="Tell us about your school and we will help you pick the right setup." primary={{ label: "Contact Sales", href: "/contact" }} secondary={{ label: "Start Free Trial", href: "/signup" }} />
+      </div>
 
       <Footer />
     </div>
