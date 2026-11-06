@@ -153,6 +153,18 @@ Invitation acceptance requires the matching verified email. Existing membership 
 Attendance edits use protected server APIs. Attendance refreshes every 30 seconds while the page
 is visible and when the window regains focus; there is no Supabase Realtime connection.
 
+## Prepared Neon destination
+
+The Direct gmail Neon connection contains the dedicated `vam-attendance` project
+(`billowing-mud-74751577`, AWS us-east-1, PostgreSQL 18).
+
+- `main` is the intended production branch. Schema version `20261106_neon_better_auth`
+  is installed; the application tables contain no imported accounts or attendance records yet.
+- `migration-validation` has the same schema plus synthetic validation records. Live Neon
+  tests confirmed teacher row isolation and denied access to credential tables.
+- Existing private records and password hashes have not been exported or copied. That transfer
+  requires explicit approval before cutover. Render configuration is unchanged.
+
 ## Deployment on Render
 
 Use the repository Dockerfile. Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to
