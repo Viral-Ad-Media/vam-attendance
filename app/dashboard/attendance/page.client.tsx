@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import Textarea from "@/components/ui/textarea";
 import { Loader, Pencil, Trash2, ClipboardCheck } from "lucide-react";
-import { getBrowserSupabase } from "@/lib/supabase/client";
 import { getAttendanceStatusColor } from "@/lib/helpers";
 import {
   ResponsiveContainer,
@@ -394,7 +393,6 @@ function TeacherReviewFields({
 function AttendancePage() {
   const [tab] = React.useState<TabKey>("sessions");
 
-  const sb = React.useMemo(() => getBrowserSupabase(), []);
 
   // Data
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
@@ -532,16 +530,21 @@ function AttendancePage() {
     reload();
   }, [reload]);
 
-  // Supabase Realtime — auto-reload when attendance changes
+  // Refresh while visible; authenticated API routes enforce all access rules.
   React.useEffect(() => {
-    const channel = sb
-      .channel("attendance-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => {
-        reload();
-      })
-      .subscribe();
-    return () => { void sb.removeChannel(channel); };
-  }, [sb, reload]);
+    const refresh = () => { if (document.visibilityState === "visible") void reload(); };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [reload]);
+
+  async function mutate(path: string, method: string, body?: unknown) {
+    const response = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Unable to save changes");
+    await reload();
+    return data;
+  }
 
   /* ------------ Derived ------------ */
   const sessionMap = React.useMemo(() => byId(sessions), [sessions]);
@@ -939,18 +942,9 @@ function AttendancePage() {
     setOpenEditTeacher(true);
   };
   const saveEditTeacher = async () => {
-    if (!sb) return;
     if (!editTeacherId) return;
-    const name = editTName.trim();
-    const email = editTEmail.trim() || null;
-    const { error } = await sb
-      .from("teachers")
-      .update({ name, email })
-      .eq("id", editTeacherId);
-    if (error) {
-      console.error(error);
-      return;
-    }
+    try { await mutate(`/api/teachers/${editTeacherId}`, "PATCH", { name: editTName.trim(), email: editTEmail.trim() }); }
+    catch (error) { console.error(error); return; }
     setOpenEditTeacher(false);
     setEditTeacherId("");
     setEditTName("");
@@ -958,7 +952,6 @@ function AttendancePage() {
   };
 
   const onOpenEditStudent = async (s: Student) => {
-    if (!sb) return;
     setEditStudentId(s.id);
     setEditSName(s.name);
     setEditSEmail(s.email ?? "");
@@ -967,51 +960,27 @@ function AttendancePage() {
     setEditSPerWeek(s.sessions_per_week ?? "");
     setEditSClass(s.class_name ?? "");
 
-    const { data } = await sb
-      .from("teacher_students")
-      .select("teacher_id")
-      .eq("student_id", s.id)
-      .limit(1);
-    const teacherRow = data?.[0] as { teacher_id?: string } | undefined;
-    setEditSTeacherId(teacherRow?.teacher_id ?? "");
+    const enrollment = enrollments.find((item) => item.student_id === s.id);
+    setEditSTeacherId(enrollment?.teacher_id ?? "");
 
     setOpenEditStudent(true);
   };
 
   const saveEditStudent = async () => {
-    if (!sb) return;
     if (!editStudentId) return;
-    const { error: e1 } = await sb
-      .from("students")
-      .update({
-        name: editSName.trim(),
-        email: editSEmail.trim() || null,
-        program: editSProgram.trim() || null,
-        duration_weeks:
-          editSDuration === "" ? null : Number(editSDuration),
-        sessions_per_week:
-          editSPerWeek === "" ? null : Number(editSPerWeek),
-        class_name: editSClass.trim() || null,
-      })
-      .eq("id", editStudentId);
-    if (e1) {
-      console.error(e1);
-      return;
-    }
-
-    if (editSTeacherId) {
-      await sb
-        .from("teacher_students")
-        .delete()
-        .eq("student_id", editStudentId);
-      const { error: e2 } = await sb
-        .from("teacher_students")
-        .insert({ teacher_id: editSTeacherId, student_id: editStudentId });
-      if (e2) {
-        console.error(e2);
-        return;
+    try {
+      await mutate(`/api/students/${editStudentId}`, "PATCH", {
+        name: editSName.trim(), email: editSEmail.trim() || null, program: editSProgram.trim() || null,
+        duration_weeks: editSDuration === "" ? null : Number(editSDuration),
+        sessions_per_week: editSPerWeek === "" ? null : Number(editSPerWeek), class_name: editSClass.trim() || null,
+      });
+      // Teaching assignment is stored on enrollments, not the obsolete teacher_students table.
+      for (const enrollment of enrollments.filter((item) => item.student_id === editStudentId)) {
+        if ((enrollment.teacher_id ?? "") !== editSTeacherId) {
+          await mutate(`/api/enrollments/${enrollment.id}`, "PATCH", { teacher_id: editSTeacherId || null });
+        }
       }
-    }
+    } catch (error) { console.error(error); return; }
     setOpenEditStudent(false);
     setEditStudentId("");
     setEditSName("");
@@ -1031,21 +1000,14 @@ function AttendancePage() {
     setOpenEditSession(true);
   };
   const saveEditSession = async () => {
-    if (!sb) return;
     if (!editSessionId) return;
     const payload: Partial<Session> = {
       teacher_id: editSessTeacherId as string,
       title: editSessTitle as string,
       starts_at: new Date(editSessStartsAt).toISOString(),
     };
-    const { error } = await sb
-      .from("sessions")
-      .update(payload)
-      .eq("id", editSessionId);
-    if (error) {
-      console.error(error);
-      return;
-    }
+    try { await mutate(`/api/sessions/${editSessionId}`, "PATCH", payload); }
+    catch (error) { console.error(error); return; }
     setOpenEditSession(false);
     setEditSessionId("");
     setEditSessTeacherId("");
@@ -1165,16 +1127,16 @@ function AttendancePage() {
 
   /* ------------ DELETE ------------ */
   const doDeleteTeacher = async (id?: string) => {
-    if (!sb || !id) return;
-    await sb.from("teachers").delete().eq("id", id);
+    if (!id) return;
+    await mutate(`/api/teachers/${id}`, "DELETE");
   };
   const doDeleteStudent = async (id?: string) => {
-    if (!sb || !id) return;
-    await sb.from("students").delete().eq("id", id);
+    if (!id) return;
+    await mutate(`/api/students/${id}`, "DELETE");
   };
   const doDeleteSession = async (id?: string) => {
-    if (!sb || !id) return;
-    await sb.from("sessions").delete().eq("id", id);
+    if (!id) return;
+    await mutate(`/api/sessions/${id}`, "DELETE");
   };
   const doDeleteAttendance = async (id?: string) => {
     if (!id) return;

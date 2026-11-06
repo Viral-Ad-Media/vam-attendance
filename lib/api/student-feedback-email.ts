@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { ApiError } from "@/lib/api/errors";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 
 type AttendanceStatus = "present" | "absent" | "late";
 
@@ -153,6 +153,7 @@ async function sendWithResend(email: OutboundEmail) {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from =
     process.env.STUDENT_FEEDBACK_EMAIL_FROM?.trim() ||
+    process.env.RESEND_FROM_EMAIL?.trim() ||
     process.env.EMAIL_FROM?.trim() ||
     process.env.TEACHER_SETUP_EMAIL_FROM?.trim();
   const replyTo = process.env.STUDENT_FEEDBACK_EMAIL_REPLY_TO?.trim() || undefined;
@@ -216,7 +217,7 @@ export async function sendAttendanceFeedbackRequest({
     );
   }
 
-  const service = getServiceClient();
+  const service = getAdminDatabase();
   const [existingResult, studentResult, sessionResult, orgResult] = await Promise.all([
     service
       .from("student_feedback_requests")
@@ -321,7 +322,7 @@ export async function resendAttendanceFeedbackRequest(
   requestId: string,
   orgId: string
 ): Promise<AttendanceFeedbackEmailStatus> {
-  const service = getServiceClient();
+  const service = getAdminDatabase();
 
   const { data: requestRow, error: requestFetchError } = await service
     .from("student_feedback_requests")

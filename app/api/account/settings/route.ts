@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getRouteContext } from "@/lib/api/context";
+import { getAdminDatabase } from "@/lib/db/service";
 import { respondWithError } from "@/lib/api/errors";
 
 const settingsSchema = z.object({
@@ -40,7 +40,7 @@ export async function PATCH(request: NextRequest) {
     const updates = settingsSchema.parse(body);
     const { session } = await getRouteContext();
 
-    const service = getServiceClient();
+    const service = getAdminDatabase();
     const currentMeta = (session.user.user_metadata as Record<string, unknown>) ?? {};
     const currentPrefs = (currentMeta.preferences as Record<string, unknown>) ?? {};
     const newPrefs = { ...currentPrefs, ...updates };

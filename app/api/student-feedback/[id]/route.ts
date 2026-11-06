@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 
@@ -23,8 +23,8 @@ type RouteParamsPromise = { params: Promise<{ id: string }> };
 export async function GET(_: NextRequest, { params }: RouteParamsPromise) {
   try {
     const { id } = await params;
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("student_feedback")
       .select("*")
       .eq("org_id", orgId)
@@ -43,9 +43,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("student_feedback")
       .update(payload)
       .eq("org_id", orgId)
@@ -54,7 +54,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
       .single();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "update", "student_feedback", id, payload);
+    await logAudit(db, orgId, session.user.id, "update", "student_feedback", id, payload);
     return NextResponse.json(data);
   } catch (error) {
     return respondWithError(error, { action: "update-student-feedback" });
@@ -64,15 +64,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
 export async function DELETE(_: NextRequest, { params }: RouteParamsPromise) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId } = await getRouteContext();
-    const { error } = await supabase
+    const { db, session, orgId } = await getRouteContext();
+    const { error } = await db
       .from("student_feedback")
       .delete()
       .eq("org_id", orgId)
       .eq("id", id);
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "delete", "student_feedback", id);
+    await logAudit(db, orgId, session.user.id, "delete", "student_feedback", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return respondWithError(error, { action: "delete-student-feedback" });

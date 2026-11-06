@@ -1,7 +1,7 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DatabaseClient } from "@/lib/db/query";
 
 export async function logAudit(
-  supabase: SupabaseClient,
+  db: DatabaseClient,
   orgId: string,
   actorId: string | null,
   action: string,
@@ -10,7 +10,7 @@ export async function logAudit(
   metadata?: Record<string, any>
 ) {
   try {
-    await supabase.from("audit_logs").insert([
+    await db.from("audit_logs").insert([
       {
         org_id: orgId,
         actor_id: actorId,

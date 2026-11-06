@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DatabaseClient } from "@/lib/db/query";
 
 export type CourseSessionPlan = {
   courseId: string;
@@ -99,7 +99,7 @@ export function buildCourseSessionRows(plan: CourseSessionPlan): CourseSessionRo
 }
 
 export async function seedAttendanceForSessions(
-  supabase: SupabaseClient,
+  db: DatabaseClient,
   orgId: string,
   sessionIds: string[],
   studentIds: string[]
@@ -119,7 +119,7 @@ export async function seedAttendanceForSessions(
     }))
   );
 
-  const { error } = await supabase.from("attendance").upsert(rows, {
+  const { error } = await db.from("attendance").upsert(rows, {
     onConflict: "org_id,session_id,student_id",
     ignoreDuplicates: true,
   });
@@ -128,10 +128,10 @@ export async function seedAttendanceForSessions(
 }
 
 export async function reconcileCourseSessions(
-  supabase: SupabaseClient,
+  db: DatabaseClient,
   plan: CourseSessionPlan
 ) {
-  const { data: existingSessions, error: existingError } = await supabase
+  const { data: existingSessions, error: existingError } = await db
     .from("sessions")
     .select("id")
     .eq("org_id", plan.orgId)
@@ -148,7 +148,7 @@ export async function reconcileCourseSessions(
 
   for (let index = 0; index < sharedCount; index += 1) {
     const desired = desiredRows[index];
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from("sessions")
       .update({
         teacher_id: desired.teacher_id,
@@ -165,7 +165,7 @@ export async function reconcileCourseSessions(
 
   if (desiredRows.length > existing.length) {
     const rowsToInsert = desiredRows.slice(existing.length);
-    const { data: insertedSessions, error: insertError } = await supabase
+    const { data: insertedSessions, error: insertError } = await db
       .from("sessions")
       .insert(rowsToInsert)
       .select("id");
@@ -174,7 +174,7 @@ export async function reconcileCourseSessions(
   }
 
   if (deletedSessionIds.length) {
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await db
       .from("sessions")
       .delete()
       .eq("org_id", plan.orgId)

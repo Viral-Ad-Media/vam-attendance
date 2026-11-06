@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { respondWithError } from "@/lib/api/errors";
 import { canManageMembers, isSuperadminMetadata, normalizeOrgRole } from "@/lib/auth/roles";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 
 export async function GET() {
   try {
-    const { supabase, orgId, role, isSuperadmin } = await getRouteContext();
+    const { db, orgId, role, isSuperadmin } = await getRouteContext();
 
     if (!canManageMembers(role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: memberships, error } = await supabase
+    const { data: memberships, error } = await db
       .from("memberships")
       .select("*")
       .eq("org_id", orgId)
@@ -23,7 +23,7 @@ export async function GET() {
     const userIds = Array.from(new Set((memberships ?? []).map((m) => m.user_id as string)));
     const usersById = new Map<string, { full_name: string | null; email: string | null }>();
     if (userIds.length > 0) {
-      const { data: users, error: usersError } = await supabase
+      const { data: users, error: usersError } = await db
         .from("users")
         .select("id, full_name, email")
         .in("id", userIds);
@@ -37,7 +37,7 @@ export async function GET() {
     // it lives on auth user metadata, so resolving it costs one admin call per member.
     const superadminByUserId = new Map<string, boolean>();
     if (isSuperadmin && userIds.length > 0) {
-      const service = getServiceClient();
+      const service = getAdminDatabase();
       await Promise.all(
         userIds.map(async (id) => {
           const { data } = await service.auth.admin.getUserById(id);

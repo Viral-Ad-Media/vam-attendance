@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 
 export async function GET() {
   try {
-    const { supabase, orgId } = await getRouteContext();
+    const { db, orgId } = await getRouteContext();
     const [orgResult, subscriptionResult] = await Promise.all([
-      supabase
+      db
         .from("organizations")
         .select("id, name, stripe_customer_id")
         .eq("id", orgId)
         .maybeSingle(),
-      supabase
+      db
         .from("subscriptions")
         .select("id, status, plan, seats, trial_ends_at, current_period_end, stripe_subscription_id")
         .eq("org_id", orgId)

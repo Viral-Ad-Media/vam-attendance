@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerClient } from "@supabase/ssr";
+import { getAppSession } from "@/lib/auth/session";
 import { cookies } from "next/headers";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 import { ApiError, respondWithError } from "@/lib/api/errors";
 import { logAudit } from "@/lib/api/audit";
 
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { token } = acceptSchema.parse(body);
-    const service = getServiceClient();
+    const service = getAdminDatabase();
 
     // Find invite by token
     const { data: invites, error: inviteError } = await service
@@ -41,24 +41,8 @@ export async function POST(request: NextRequest) {
 
     // Get current user from cookies/session
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const session = await getAppSession();
+    const user = session?.user;
 
     if (!user) {
       throw new ApiError(

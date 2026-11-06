@@ -43,11 +43,11 @@ export function TopBar({
 
   const onLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Unable to sign out. Please try again.");
+      window.location.href = "/login";
     } catch (e) {
       console.error(e);
-    } finally {
-      window.location.href = "/login";
     }
   };
 

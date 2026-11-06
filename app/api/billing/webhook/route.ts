@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -13,9 +13,9 @@ function missingConfig() {
 }
 
 async function upsertSubscriptionRecord(stripeSub: Stripe.Subscription, orgId: string) {
-  const supabase = getServiceClient();
+  const db = getAdminDatabase();
   const price = stripeSub.items.data[0]?.price;
-  await supabase
+  await db
     .from("subscriptions")
     .upsert(
       {
@@ -36,9 +36,6 @@ async function upsertSubscriptionRecord(stripeSub: Stripe.Subscription, orgId: s
 
 export async function POST(request: NextRequest) {
   if (!stripeSecret || !webhookSecret) return missingConfig();
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: "Service role key not configured." }, { status: 501 });
-  }
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) {

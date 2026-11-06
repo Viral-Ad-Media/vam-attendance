@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { reconcileCourseSessions, seedAttendanceForSessions } from "@/lib/api/course-sessions";
 
@@ -34,8 +34,8 @@ function handleError(error: unknown) {
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("courses")
       .select("*")
       .eq("org_id", orgId)
@@ -53,9 +53,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
-    const { data: existingCourse, error: existingCourseError } = await supabase
+    const { data: existingCourse, error: existingCourseError } = await db
       .from("courses")
       .select("*")
       .eq("org_id", orgId)
@@ -81,7 +81,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data, error } =
       Object.keys(courseUpdate).length > 0
-        ? await supabase
+        ? await db
             .from("courses")
             .update(courseUpdate)
             .eq("org_id", orgId)
@@ -113,23 +113,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       starts_at: payload.starts_at !== undefined ? payload.starts_at : existingCourse.starts_at ?? null,
     };
 
-    const sessionSync = await reconcileCourseSessions(supabase, sessionPlan);
+    const sessionSync = await reconcileCourseSessions(db, sessionPlan);
     if (sessionSync.createdSessionIds.length) {
-      const { data: enrollments, error: enrollErr } = await supabase
+      const { data: enrollments, error: enrollErr } = await db
         .from("enrollments")
         .select("student_id")
         .eq("org_id", orgId)
         .eq("course_id", id);
       if (enrollErr) throw enrollErr;
       await seedAttendanceForSessions(
-        supabase,
+        db,
         orgId,
         sessionSync.createdSessionIds,
         enrollments?.map((enrollment) => enrollment.student_id) ?? []
       );
     }
 
-    await logAudit(supabase, orgId, session.user.id, "update", "course", id, {
+    await logAudit(db, orgId, session.user.id, "update", "course", id, {
       ...courseUpdate,
       sessions_reconciled: sessionSync,
     });
@@ -142,30 +142,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
     // Ensure related data is cleaned up with the course delete.
-    const { error: deleteSessionsError } = await supabase
+    const { error: deleteSessionsError } = await db
       .from("sessions")
       .delete()
       .eq("org_id", orgId)
       .eq("course_id", id);
     if (deleteSessionsError) throw deleteSessionsError;
 
-    const { error: deleteEnrollmentsError } = await supabase
+    const { error: deleteEnrollmentsError } = await db
       .from("enrollments")
       .delete()
       .eq("org_id", orgId)
       .eq("course_id", id);
     if (deleteEnrollmentsError) throw deleteEnrollmentsError;
 
-    const { error } = await supabase
+    const { error } = await db
       .from("courses")
       .delete()
       .eq("org_id", orgId)
       .eq("id", id);
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "delete", "course", id);
+    await logAudit(db, orgId, session.user.id, "delete", "course", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleError(error);

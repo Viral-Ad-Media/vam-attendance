@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 import { sendInviteEmail } from "@/lib/api/invite-email";
@@ -13,9 +13,9 @@ const inviteSchema = z.object({
 
 export async function GET() {
   try {
-    const { supabase, orgId, role } = await getRouteContext();
+    const { db, orgId, role } = await getRouteContext();
     requireOrgAdmin(role);
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("invites")
       .select("*")
       .eq("org_id", orgId)
@@ -32,11 +32,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const payload = inviteSchema.parse(body);
-    const { supabase, orgId, session, role } = await getRouteContext();
+    const { db, orgId, session, role } = await getRouteContext();
     requireOrgAdmin(role);
 
     const inviteEmail = payload.email.trim().toLowerCase();
-    const { data: orgData } = await supabase
+    const { data: orgData } = await db
       .from("organizations")
       .select("name")
       .eq("id", orgId)
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // Insert invite
-    const { data: invite, error: insertError } = await supabase
+    const { data: invite, error: insertError } = await db
       .from("invites")
       .insert([
         {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       // Continue anyway - invite was created
     }
 
-    await logAudit(supabase, orgId, session.user.id, "create", "invite", invite.id, {
+    await logAudit(db, orgId, session.user.id, "create", "invite", invite.id, {
       email: inviteEmail,
       role: payload.role,
     });

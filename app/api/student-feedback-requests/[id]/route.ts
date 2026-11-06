@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext, requireOrgAdmin, requireSessionAccess } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin, requireSessionAccess } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 import { resendAttendanceFeedbackRequest } from "@/lib/api/student-feedback-email";
@@ -17,9 +17,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
     const body = await request.json();
     actionSchema.parse(body);
     const context = await getRouteContext();
-    const { supabase, orgId, session, role } = context;
+    const { db, orgId, session, role } = context;
 
-    const { data: requestRow, error: requestError } = await supabase
+    const { data: requestRow, error: requestError } = await db
       .from("student_feedback_requests")
       .select("*")
       .eq("org_id", orgId)
@@ -36,7 +36,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
       requireOrgAdmin(role);
     }
     const result = await resendAttendanceFeedbackRequest(id, orgId);
-    await logAudit(supabase, orgId, session.user.id, "resend", "student_feedback_request", id, {
+    await logAudit(db, orgId, session.user.id, "resend", "student_feedback_request", id, {
       request_id: id,
       feedback_sent: result.sent,
       reason: result.reason,
@@ -51,14 +51,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
 export async function DELETE(_: NextRequest, { params }: RouteParamsPromise) {
   try {
     const { id } = await params;
-    const { supabase, orgId, session } = await getRouteContext();
-    const { error } = await supabase
+    const { db, orgId, session } = await getRouteContext();
+    const { error } = await db
       .from("student_feedback_requests")
       .delete()
       .eq("org_id", orgId)
       .eq("id", id);
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "delete", "student_feedback_request", id);
+    await logAudit(db, orgId, session.user.id, "delete", "student_feedback_request", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return respondWithError(error, { action: "delete-feedback-request" });

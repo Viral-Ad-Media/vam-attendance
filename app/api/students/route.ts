@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
@@ -18,8 +18,8 @@ const studentSchema = z.object({
 
 export async function GET() {
   try {
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("students")
       .select("*")
       .eq("org_id", orgId)
@@ -45,16 +45,16 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = studentSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("students")
       .insert([{ ...payload, org_id: orgId }])
       .select()
       .single();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "create", "student", data.id, { email: data.email });
+    await logAudit(db, orgId, session.user.id, "create", "student", data.id, { email: data.email });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     return respondWithError(error, { action: "create-student" });

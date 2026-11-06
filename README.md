@@ -1,309 +1,201 @@
 # VAM Attendance
 
-A multi-tenant attendance management system for educators and institutions. VAM Attendance provides a marketing site, authentication, and an org-scoped dashboard for managing teachers, students, courses, sessions, enrollments, and attendance, with optional Stripe billing.
+An attendance workspace for managing organizations, teachers, students, courses, sessions,
+enrollments, attendance, and student feedback. The application includes a marketing website,
+protected administrator and teacher dashboards, email workflows, CSV import/export, reports,
+and optional Stripe subscriptions.
 
-## Contents
-1. Product Overview
-2. Tech Stack
-3. Project Structure
-4. Local Development
-5. Environment Variables
-6. Database Setup
-7. Auth, Orgs, and Roles
-8. API Reference
-9. UI Routes
-10. Billing (Stripe)
-11. Security Notes
-12. Deployment
-13. Known Gaps
-14. Scripts and Verification
-15. Security Migration
+## Stack
 
-## Product Overview
-- Multi-tenant, org-scoped attendance management.
-- Admin dashboard for courses, sessions, enrollments, teachers, students, and attendance.
-- Teacher dashboard with quick access to sessions and attendance.
-- Attendance tracking with list and calendar views, KPIs, and charts.
-- Supabase Auth + Postgres with Row Level Security (RLS).
-- Optional Stripe subscription workflow.
+- Next.js 16, React 19, TypeScript, Tailwind CSS 4, and Radix UI
+- **Neon PostgreSQL** accessed from server routes using `pg`
+- **Better Auth** hosted inside the Next.js application, with database-backed sessions
+- Resend for email verification, password recovery, invitations, and student feedback
+- Stripe for optional subscriptions and customer billing portal
 
-## Tech Stack
-- Next.js 16 App Router
-- React 19
-- Supabase (Auth + Postgres + RLS)
-- Stripe (subscriptions + billing portal + webhooks)
-- Tailwind CSS 4 + Radix UI
-- Zod for input validation
-- Recharts for dashboards
+Supabase is not a runtime dependency. Historical SQL lives under `database/legacy` and
+`database/migrations` only to document the previous deployment. Do not apply those historical
+Supabase migrations to Neon.
 
-## Project Structure
-- `app`: Next.js App Router pages and API routes.
-- `app/api`: Server endpoints for auth, resources, and billing.
-- `app/dashboard`: Admin and teacher dashboards.
-- `components`: UI building blocks and layout.
-- `lib`: Supabase clients, data access helpers, utilities.
-- `database`: SQL schema and RLS policies.
-- `public`: Static assets.
+## Local setup
 
-## Local Development
-1. Install dependencies.
-```
+Use Node.js 22.13 or newer and npm.
+
+```bash
 npm ci
+cp .env.example .env.local
+openssl rand -base64 32
 ```
-2. Copy `.env.example` to `.env.local` and fill in the required values. Keep service-role, Stripe, and Resend keys server-side.
-3. Start the dev server.
-```
+
+Put the generated value in `BETTER_AUTH_SECRET`, and configure the remaining required values:
+
+| Variable                                                        | Purpose                                                                      |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                  | Pooled Neon PostgreSQL URL for the application; use TLS                      |
+| `DATABASE_URL_UNPOOLED`                                         | Direct Neon URL for schema migration and importing existing data             |
+| `BETTER_AUTH_URL`                                               | Public application origin, including scheme; localhost for local development |
+| `BETTER_AUTH_SECRET`                                            | Persistent, randomly generated secret of at least 32 characters              |
+| `NEXT_PUBLIC_APP_URL`                                           | Public origin used for invitation, feedback, and billing links               |
+| `RESEND_API_KEY`                                                | Email delivery credential                                                    |
+| `RESEND_FROM_EMAIL` or `EMAIL_FROM`                             | Verified sender address                                                      |
+| `TEACHER_SETUP_EMAIL_FROM`                                      | Optional fallback sender for account setup                                   |
+| `STUDENT_FEEDBACK_EMAIL_FROM`                                   | Optional feedback sender                                                     |
+| `STUDENT_FEEDBACK_EMAIL_REPLY_TO`                               | Optional feedback reply-to address                                           |
+| `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` | Optional subscription configuration                                          |
+| `SEED_ORG_ID`, `SEED_START_DATE`, `SEED_TIMEZONE_OFFSET`        | Optional demo-data settings                                                  |
+
+Keep credentials out of git. PostgreSQL credentials and the Better Auth secret are server-only;
+there are no public database keys or Supabase build arguments.
+
+```bash
+npm run db:migrate
 npm run dev
 ```
-4. Visit `http://localhost:3000`.
 
-## Environment Variables
-| Name | Required | Description | Used By |
-| --- | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL | Supabase clients, middleware |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon public key | Supabase clients, middleware |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes for signup, teachers, invitations, feedback, billing, and superadmin | Service role key for admin operations | Signup flow, teacher creation, Stripe, service client |
-| `NEXT_PUBLIC_APP_URL` | Recommended | Public base URL for redirects | Stripe checkout/portal, signup redirect |
-| `VERCEL_URL` | Optional | Vercel-provided URL fallback | Signup redirect |
-| `RESEND_API_KEY` | Optional (required for custom teacher setup email) | Resend API key used to send custom teacher setup emails | Teacher create/update password setup email |
-| `TEACHER_SETUP_EMAIL_FROM` | Optional (required with `RESEND_API_KEY`) | From address for teacher setup email, e.g. `VAM Attendance <no-reply@yourdomain.com>` | Teacher create/update password setup email |
-| `TEACHER_SETUP_EMAIL_REPLY_TO` | Optional | Reply-to address for teacher setup email | Teacher create/update password setup email |
-| `EMAIL_FROM` | Optional fallback | Fallback sender if `TEACHER_SETUP_EMAIL_FROM` is not set | Teacher setup email fallback sender |
-| `RESEND_FROM_EMAIL` | Optional | Preferred sender for invitation email | Invitation email |
-| `STUDENT_FEEDBACK_EMAIL_FROM` | Optional (required unless another sender fallback is configured) | Sender for attendance feedback requests | Feedback email |
-| `STUDENT_FEEDBACK_EMAIL_REPLY_TO` | Optional | Reply-to address for feedback requests | Feedback email |
-| `STRIPE_SECRET_KEY` | Optional | Stripe secret key | Billing endpoints |
-| `STRIPE_PRICE_ID` | Optional | Stripe price id for subscriptions | Checkout endpoint |
-| `STRIPE_WEBHOOK_SECRET` | Optional | Stripe webhook secret | Webhook endpoint |
+The schema command applies `database/schema.sql` atomically, uses an advisory lock, and records
+its version in `vam_migrations`. Running it again skips an already-applied version. Use the direct
+Neon connection for migrations. Do not use this command to modify an existing Supabase database.
 
-## Database Setup
-1. Create a Supabase project.
-2. Run the schema in `database/schema.sql` using the Supabase SQL editor.
-3. Confirm RLS is enabled and policies are installed. The schema includes the latest authorization hardening.
+## Authentication
 
-For an existing installation, follow the Security Migration section instead of rerunning the full schema. The migration replaces policies on the listed application tables and leaves unrelated public tables untouched.
+- Sign up creates the auth identity, credential, organization, owner membership, and profile in
+  one PostgreSQL transaction. Email verification follows account creation; delivery failure
+  leaves the account intact so verification can be retried by signing in.
+- Sign in, sign out, session validation, verification, and reset tokens use Better Auth.
+- Sessions use HTTP-only cookies, secure cookies in production, and database validation.
+- Password recovery uses expiring, single-use tokens and invalidates active sessions after reset.
+- Teacher account setup uses the same password recovery mechanism. Administrators can create
+  linked teacher accounts and update passwords; identity changes invalidate active sessions.
+- Direct Better Auth signup is disabled so identities cannot be created without an organization.
+- New passwords use Better Auth's scrypt hashing. The verifier also accepts imported bcrypt
+  passwords from the previous identity system. Accounts without a password require recovery.
+- Verification and recovery require a working Resend sender. No email delivery is simulated in production.
 
-## Seed Data
-- `database/seed-data/amazon-walmart-schedule.csv` contains the Amazon/Walmart schedule sheet as repo seed data.
-- Preview the parsed seed plan:
-```
-npm run seed:amazon-walmart -- --dry-run
-```
-- Seed it into a specific organization:
-```
-SEED_ORG_ID=<organization-id> npm run seed:amazon-walmart
-```
-- The script reads `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from `.env`/`.env.local`, creates teachers and students, groups matching coach/day/time rows into courses, generates eight sessions per course, then upserts enrollments and attendance.
-- Optional settings: `SEED_START_DATE` defaults to `2026-01-05`; `SEED_TIMEZONE_OFFSET` defaults to `+00:00`.
+## Permissions and tenant boundaries
 
-## Schema Summary
-- `organizations`: Tenant boundary, owned by a Supabase auth user.
-- `memberships`: Org membership and roles (`owner`, `admin`, `teacher`, `student`, `viewer`).
-- `invites`: Invite tokens for org membership, managed through `/dashboard/invites`.
-- `subscriptions`: Stripe subscription state per org.
-- `audit_logs`: Admin audit trail for mutations.
-- `users`: Profile table tied to `auth.users`.
-- `teachers`: Teacher directory; can map to auth users.
-- `students`: Student directory.
-- `courses`: Course definitions and metadata.
-- `sessions`: Scheduled sessions (optionally tied to courses and teachers).
-- `enrollments`: Student enrollment in courses.
-- `attendance`: Attendance records per session + student.
-- `student_feedback`: Internal notes and student-submitted session feedback.
-- `student_feedback_requests`: Expiring, hashed-token feedback links tied to attendance records.
+Every protected API validates the Better Auth session and resolves the organization against
+membership or ownership. The active-organization cookie is a selection hint. Platform superadmin
+status comes only from server-managed `auth_users.app_metadata`, never user-editable metadata.
 
-## Auth, Orgs, and Roles
-- Signup (`POST /api/auth/signup`) creates an org, membership, and user profile using the service role key.
-- `getRouteContext` validates the auth user with Supabase, selects the organization from `vam_active_org` before metadata defaults, and verifies membership or ownership. Cookies and user metadata are selection hints, never proof of access.
-- Organization roles come from `memberships`. The legacy `owner` role is normalized to `admin` in application code.
-- Platform `superadmin` privileges come only from server-managed `app_metadata.role`. Provision them through a trusted administrative workflow, never through signup or user-editable metadata.
-- `middleware.ts` protects dashboard pages and restricts teacher navigation to the permitted teaching/profile/settings routes. RLS independently enforces access for direct Supabase requests.
+| Capability                                      | Org admin / owner | Teacher                                        | Student / viewer              |
+| ----------------------------------------------- | ----------------- | ---------------------------------------------- | ----------------------------- |
+| Read teaching data                              | Organization-wide | Assigned teaching records                      | Organization-wide read access |
+| Manage teachers, students, courses, enrollments | Yes               | No                                             | No                            |
+| Manage sessions and attendance                  | Yes               | Own assigned sessions                          | No                            |
+| Write feedback                                  | Yes               | Assigned students and related teaching records | No                            |
+| Manage invitations and organization roles       | Yes               | No                                             | No                            |
+| Open Stripe checkout or portal                  | Yes               | No                                             | No                            |
 
-| Capability | Org admin / owner | Teacher | Student / viewer |
-| --- | --- | --- | --- |
-| Read teaching data | Organization-wide | Own sessions/attendance and related assignments | Organization-wide read access |
-| Manage teachers, students, courses, enrollments | Yes | No | No |
-| Manage sessions and attendance | Yes | Own sessions only | No |
-| Write feedback | Yes | Assigned students and related records | No |
-| Manage invitations and membership roles | Yes | No | No |
-| Open Stripe checkout or billing portal | Yes | No | No |
+Server data queries run in independent transactions with `SET LOCAL ROLE authenticated` and a
+transaction-local `app.user_id`. Existing PostgreSQL RLS policies enforce organization and teacher
+access. Role and identity reset at the transaction boundary before a pooled connection is reused.
+Auth credential/session tables are inaccessible to the data role. Privileged server workflows
+use a separate code path, with authorization checks before invoking account or billing operations.
 
-Platform superadmins may perform these operations in any selected organization. Subscription rows are writable only by trusted server workflows, including the verified Stripe webhook.
+Tenant IDs are immutable. Database triggers reject links to records from another organization,
+including when privileged server jobs write data. These checks retain normal FK cascade behavior.
+HTTP request-origin checks protect browser mutations; Stripe webhooks use signature verification.
 
-## API Reference
-Authenticated endpoints return JSON and are org-scoped via Supabase RLS. Invitation validation and public feedback use expiring tokens; the billing webhook verifies a Stripe signature. Most endpoints use Zod validation and return standard errors from `lib/api/errors.ts`.
+## Migration from the previous database
 
-## Auth
-- `POST /api/auth/signup` Create user, org, membership, and profile.
-- `POST /api/auth/login` Sign in and set org cookies.
-- `POST /api/auth/logout` Sign out and clear org cookies.
+1. Create a dedicated Neon project and choose its production branch. Test the schema and import
+   on an isolated Neon branch before production cutover.
+2. Apply the Neon schema with `npm run db:migrate`.
+3. Set `SOURCE_DATABASE_URL` to the **direct** PostgreSQL connection for the previous database,
+   and `DATABASE_URL_UNPOOLED` to the **direct** destination connection. Do not commit either value.
+4. Pause application writes during the final copy to avoid changes after the source snapshot.
+5. Run `npm run db:import` and inspect the printed counts.
+6. Configure the runtime variables in Render, build and deploy the application, then verify login,
+   protected APIs, teacher attendance, invitations, email verification/recovery, and billing if enabled.
+7. Keep the previous database available until data counts and real user workflows have been verified.
 
-## Attendance
-- `GET /api/attendance` List attendance. Supports `session_id` and `student_id` query params.
-- `POST /api/attendance` Create a record. Rate limited.
-- `GET /api/attendance/:id` Fetch a single record.
-- `PATCH /api/attendance/:id` Update status or notes.
-- `DELETE /api/attendance/:id` Delete a record.
+The importer uses a consistent, read-only source snapshot and a single destination transaction.
+It refuses a populated destination, preserves UUIDs and organization relationships, copies all
+application tables that exist in the source, and validates row counts before committing.
+Unsupported password formats abort the import. It does not print password hashes, transfer legacy
+sessions, delete source data, or turn user metadata into platform privileges. Users must sign in again.
+OAuth-only accounts need a password reset or a separately configured social provider.
 
-## Students
-- `GET /api/students`
-- `POST /api/students` Create student. Rate limited.
-- `GET /api/students/:id`
-- `PATCH /api/students/:id`
-- `DELETE /api/students/:id`
+Live migration/deployment is a separate operational step: code and passing local tests do not mean
+production data has been copied or Render environment variables have been updated.
 
-## Teachers
-- `GET /api/teachers`
-- `POST /api/teachers` Create teacher + Supabase auth user. Requires `SUPABASE_SERVICE_ROLE_KEY`.
-- `GET /api/teachers/:id`
-- `PATCH /api/teachers/:id`
-- `DELETE /api/teachers/:id`
+## Application routes
 
-When `sendPasswordSetup` is enabled, teacher create/update now generates a recovery link with Supabase Admin API and sends a custom email through Resend (instead of Supabase default reset template).
+Public pages: `/`, `/features`, `/pricing`, `/about`, `/contact`, `/privacy`, `/terms`, `/login`,
+`/signup`, `/forgot-password`, `/auth/reset-password`, `/invite/:token`, and `/feedback/:token`.
 
-## Courses
-- `GET /api/courses`
-- `POST /api/courses` Create course, auto-generate sessions, and seed attendance placeholders.
-- `GET /api/courses/:id`
-- `PATCH /api/courses/:id`
-- `DELETE /api/courses/:id`
+Protected pages under `/dashboard` include attendance, students, teachers, courses, sessions,
+enrollments, feedback, feedback requests, invitations, reports, audit, CSV import/export, billing,
+profile, settings, and the teacher dashboard. The dashboard's server layout validates the session;
+a cookie in middleware alone does not grant access.
 
-## Sessions
-- `GET /api/sessions`
-- `POST /api/sessions` Create session and seed attendance for enrolled students.
-- `GET /api/sessions/:id`
-- `PATCH /api/sessions/:id`
-- `DELETE /api/sessions/:id`
+## API overview
 
-## Enrollments
-- `GET /api/enrollments`
-- `POST /api/enrollments`
-- `GET /api/enrollments/:id`
-- `PATCH /api/enrollments/:id`
-- `DELETE /api/enrollments/:id`
+| Area              | Endpoints                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| Authentication    | `POST /api/auth/signup`, `/login`, `/logout`, `/forgot-password`; Better Auth endpoints under `/api/auth/*` |
+| Session           | `GET /api/auth/get-session`                                                                                 |
+| Health            | `GET /api/health`; returns 503 when configuration or database schema is unavailable                         |
+| Directory         | CRUD `/api/students`, `/api/teachers`, and `/:id`                                                           |
+| Teaching          | CRUD `/api/courses`, `/api/sessions`, `/api/enrollments`, and `/:id`                                        |
+| Attendance        | CRUD `/api/attendance` and `/:id`; GET/POST `/api/sessions/:id/attendance-bulk`                             |
+| Feedback          | CRUD `/api/student-feedback` and `/:id`; public GET/POST `/api/public/student-feedback/:token`              |
+| Feedback requests | GET/POST `/api/student-feedback-requests`; PATCH/DELETE `/:id`                                              |
+| Invitations       | GET/POST `/api/invites`; POST `/api/invite/validate` and `/api/invite/accept`                               |
+| Members           | GET `/api/memberships`; PATCH `/api/memberships/:id`                                                        |
+| Platform roles    | PATCH `/api/superadmin/users/:id` (superadmins only)                                                        |
+| Account           | GET/PATCH `/api/account/profile` and `/api/account/settings`                                                |
+| Import            | POST `/api/import/students` (CSV, maximum 1,000 rows)                                                       |
+| Reports           | GET `/api/audit` and `/api/students/at-risk`                                                                |
+| Billing           | POST `/api/billing/checkout`, `/portal`, `/webhook`; GET `/api/billing/status`                              |
 
-## Invites & Membership (Org Onboarding)
-- `GET /api/invites` List pending and accepted organization invitations.
-- `POST /api/invites` Create and send new invitation emails (requires `email`, `role`).
-- `POST /api/invite/validate` Validate invitation token (returns invite details or error).
-- `POST /api/invite/accept` Accept an unexpired invitation using the matching verified email. Existing membership roles are preserved.
-- `GET /api/memberships` List current org members with roles and timestamps.
-- `PATCH /api/memberships/:id` Change an organization role (admins only).
-- `PATCH /api/superadmin/users/:id` Grant or revoke platform superadmin (existing superadmins only).
+Invitation acceptance requires the matching verified email. Existing membership roles are preserved.
+Attendance edits use protected server APIs. Attendance refreshes every 30 seconds while the page
+is visible and when the window regains focus; there is no Supabase Realtime connection.
 
-## Student Feedback
-- `GET /api/student-feedback` List accessible feedback; supports student, teacher, course, session, category, and sentiment filters.
-- `POST /api/student-feedback` Create internal feedback.
-- `GET`, `PATCH`, `DELETE /api/student-feedback/:id` Read, update, or delete accessible feedback.
-- `GET`, `POST /api/public/student-feedback/:token` Load or submit feedback through an expiring link.
+## Deployment on Render
 
-## Account and Import
-- `GET`, `PATCH /api/account/profile` Read or update the current profile.
-- `GET`, `PATCH /api/account/settings` Read or update account preferences.
-- `POST /api/import/students` Import CSV data, with a maximum of 1,000 rows (admins only).
+Use the repository Dockerfile. Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to
+`https://vam-attendance.onrender.com` (or the verified custom production origin). Set the pooled
+`DATABASE_URL` and persistent `BETTER_AUTH_SECRET` as runtime environment variables. Build images
+without production credentials. Supply email and billing secrets only to the runtime.
 
-## Feedback Requests
-- `GET /api/student-feedback-requests` List feedback requests for org with status filtering.
-- `PATCH /api/student-feedback-requests/:id` Resend feedback request email (action: `resend`), restricted to admins or the session’s teacher.
-- `DELETE /api/student-feedback-requests/:id` Delete feedback request.
+Run migrations before deploying the application, using a direct connection. Set the service's
+HTTP health-check path to `/api/health`; a listening container alone does not prove readiness.
+Do not generate a new Better Auth secret on every deploy or boot.
 
-## Audit Logs
-- `GET /api/audit` Fetch organization audit trail with filtering by `action`, `entity`, and `actor_id`.
-
-## Billing (Stripe)
-- `POST /api/billing/checkout` Create a Stripe Checkout session (admins only).
-- `POST /api/billing/portal` Create a Stripe Billing Portal session (admins only).
-- `POST /api/billing/webhook` Stripe webhook handler (Node runtime).
-- `GET /api/billing/status` Read organization billing status.
-
-## Admin dashboard
-- `/dashboard/audit` Audit logs with filtering by action and entity
-- `/dashboard/feedback-requests` Manage student feedback request workflows (resend, delete)
-- `/dashboard/invites` Send and manage organization invitations
-- `/dashboard/reports` Analytics and attendance reports
-- `/dashboard/import-export` Bulk export to CSV and import templates
-- `/` Landing page
-- `/features`, `/pricing`, `/about`, `/contact`, `/privacy`, `/terms`
-- `/login`, `/signup`
-
-## Dashboard
-- `/dashboard` Admin overview
-- `/dashboard/attendance` Attendance management (list and calendar)
-- `/dashboard/students`, `/dashboard/teachers`
-- `/dashboard/courses`, `/dashboard/sessions`, `/dashboard/enrollments`
-- `/dashboard/profile` Persistent account profile
-- `/dashboard/settings` Persistent preferences and member management
-- `/dashboard/teacher` Teacher view
-
-## Billing (Stripe)
-1. Create a product and recurring price in Stripe.
-2. Set `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`.
-3. Set `NEXT_PUBLIC_APP_URL` to your public base URL (used in checkout and portal redirects).
-4. Add a webhook endpoint for `https://<your-domain>/api/billing/webhook` and subscribe to `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, and `checkout.session.completed`.
-
-## Security Notes
-- Postgres RLS enforces org scoping and role-based access (see `database/schema.sql`).
-- Server routes validate payloads with Zod.
-- API rate limiting uses an in-memory bucket (`lib/api/rate-limit.ts`).
-- Security headers and CSP are defined in `next.config.ts`.
-
-## Deployment
-
-The Docker image uses Node.js 22 and the Next.js standalone output. To run locally with Docker:
+For local Docker:
 
 ```bash
 docker compose --env-file .env.local up --build
 ```
 
-The two `NEXT_PUBLIC_SUPABASE_*` values must be present at build time; they are included in the
-browser bundle. Service-role, Resend, and Stripe secrets belong only in the runtime environment.
-Configure `NEXT_PUBLIC_APP_URL` for invitation, feedback, password setup, and billing redirects.
+Stripe webhooks should subscribe to `customer.subscription.created`, `customer.subscription.updated`,
+`customer.subscription.deleted`, and `checkout.session.completed` at `/api/billing/webhook`.
 
-- Set all required environment variables in your hosting provider.
-- Ensure the Supabase schema and RLS policies have been applied.
-- If using Stripe, configure the webhook and use the Node.js runtime (already set in the webhook route).
+## Verification and scripts
 
-## Known Gaps
+```bash
+npm run test:security
+npx tsc --noEmit
+npm run build
+```
 
-- The full ESLint check currently reports existing errors in legacy utilities and UI files; changed security files are linted separately.
-- API rate limiting is in-memory and not suitable for multi-instance production without a shared store.
-- CSV student import is wired to `/api/import/students`; other import types are not implemented.
-- Student/viewer roles currently have organization-wide read access to teaching data; there is no per-student auth-to-student mapping.
-- Feedback token submission currently uses separate insert/update operations; it is not a transactional, single-use database operation.
+Security tests execute PostgreSQL policies and tenant triggers using PGlite. They also test
+parameterized SQL, imported password verification, real Better Auth session/recovery operations,
+and cross-origin request rejection. Tests do not use production credentials or modify Neon.
 
-## Scripts and Verification
-- `npm run dev` Start dev server
-- `npm run build` Build for production
-- `npm run start` Run production server
-- `npm run lint` Run ESLint
-- `npx tsc --noEmit` Check TypeScript types
-- `npm run test:security` Run authorization and executable PostgreSQL regression tests using PGlite (no production credentials)
-- `npm run seed:amazon-walmart` Seed Amazon/Walmart schedule demo data
+Other commands: `npm run dev`, `npm run start`, `npm run lint`, and
+`npm run seed:amazon-walmart -- --dry-run`. The seed script supports `SEED_ORG_ID` for writing demo
+schedule data into a chosen Neon organization.
 
-## Security Migration (2026-10-05)
+## Current limitations
 
-For existing databases, apply `database/migrations/20261005_authorization_tenant_isolation.sql`
-as the database owner before deploying this change. Fresh installs include it in `database/schema.sql`.
-The migration is transactional and repeatable. It aborts if existing related records cross
-organization boundaries; inspect the named table/column and correct those records before retrying.
-It replaces RLS policies on the listed application tables (review any custom policies first),
-without touching other public tables. No records are deleted.
-
-Platform superadmins must be provisioned through trusted `app_metadata.role` only; user metadata
-never grants platform privileges. Organization switching is a selection hint verified against
-membership or ownership. Teachers see their own sessions and attendance, assigned courses,
-related students/enrollments, and feedback within those assignments. Student directory, course,
-enrollment, and teacher administration is reserved for org admins. Teachers may manage their own
-sessions and attendance and write feedback for their assigned students. Invitations are admin-only;
-acceptance requires the matching verified email. Stripe subscription state is writable only by
-trusted server workflows. Tenant IDs cannot be changed and related records must share a tenant.
-
-Before rollout:
-1. Run `npm ci`, `npm run test:security`, and `npx tsc --noEmit`.
-2. Apply the migration in a staging database as the database owner, then verify admin and teacher workflows with separate accounts.
-3. Apply the same migration to the production database before deploying the application changes.
-4. Verify teacher attendance, invitation acceptance, and the billing workflow after deployment.
-
-The migration tests cover fresh installs, repeat application, teacher assignment restrictions,
-cross-tenant link rejection, existing cascade deletes, and safe failure when legacy data is inconsistent.
-Tests do not access or change the deployed Supabase database.
+- Student/viewer roles have organization-wide teaching-data read access; there is no per-student
+  auth-to-student mapping yet.
+- Rate limiting on custom signup/recovery routes uses an in-memory store; multi-instance
+  deployments need a shared rate-limit store.
+- Internal student-feedback creation and feedback-token submission are separate workflows; public
+  token submission is not yet a single atomic insert-and-consume database operation.
+- Profile/settings persist, but notification preferences are not an implementation of MFA.
+- Existing unrelated lint findings in older UI and utility code are tracked separately.

@@ -1,0 +1,77 @@
+"use client";
+
+// File: app/dashboard/layout.tsx
+import * as React from "react";
+import { AccountProvider } from "@/components/dashboard/AccountContext";
+import { Sidebar } from "@/components/dashboard/Sidebar";
+import { ToastProvider } from "@/components/ui/toast-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Menu } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+
+export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Provide account context to BOTH sidebar and pages */}
+      <ToastProvider>
+      <TooltipProvider delayDuration={300}>
+      <AccountProvider>
+        {/* Mobile drawer */}
+        <div
+          className={cn(
+            "fixed inset-0 z-40 lg:hidden transition",
+            mobileNavOpen ? "pointer-events-auto" : "pointer-events-none"
+          )}
+        >
+          <div
+            className={cn(
+              "absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity",
+              mobileNavOpen ? "opacity-100" : "opacity-0"
+            )}
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <div
+            className={cn(
+              "absolute left-0 top-0 h-full w-[280px] max-w-[85vw] transform transition-transform duration-200",
+              mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+            )}
+          >
+            <Sidebar variant="mobile" onNavigate={() => setMobileNavOpen(false)} onClose={() => setMobileNavOpen(false)} />
+          </div>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-[1600px]">
+          {/* Minimal, slim sidebar */}
+          <aside className="hidden shrink-0 border-r border-slate-200 bg-white lg:block">
+            <Sidebar />
+          </aside>
+
+          {/* Content with slightly tighter gutters (but still breathing) */}
+          <main className="flex-1 min-w-0 px-3 pb-7 sm:px-5 lg:px-7 lg:pt-5">
+            {/* Mobile nav bar: in-flow and sticky so it never overlaps page headers */}
+            <div className="sticky top-0 z-30 -mx-3 mb-3 flex h-12 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur sm:-mx-5 sm:px-5 lg:hidden">
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open navigation menu"
+                aria-expanded={mobileNavOpen}
+              >
+                <Menu className="h-4 w-4" />
+                Menu
+              </button>
+              <span className="truncate text-sm font-semibold text-slate-900">VAM Attendance</span>
+            </div>
+
+            {children}
+          </main>
+        </div>
+      </AccountProvider>
+      </TooltipProvider>
+      </ToastProvider>
+    </div>
+  );
+}

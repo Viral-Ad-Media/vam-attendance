@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
@@ -17,14 +17,14 @@ const enrollmentBatchSchema = z.array(enrollmentSchema).min(1).max(200);
 
 export async function GET(request: Request) {
   try {
-    const { supabase, orgId } = await getRouteContext();
+    const { db, orgId } = await getRouteContext();
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get("student_id");
     const courseId = searchParams.get("course_id");
     const teacherId = searchParams.get("teacher_id");
     const status = searchParams.get("status");
 
-    let query = supabase
+    let query = db
       .from("enrollments")
       .select("*, student_id, course_id, teacher_id")
       .eq("org_id", orgId)
@@ -56,10 +56,10 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payloads = Array.isArray(body) ? enrollmentBatchSchema.parse(body) : [enrollmentSchema.parse(body)];
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
     const rows = payloads.map((payload) => ({ ...payload, org_id: orgId }));
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("enrollments")
       .upsert(rows, { onConflict: "org_id,student_id,course_id" })
       .select();
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
     const courseIds = Array.from(new Set(rows.map((row) => row.course_id)));
     for (const courseId of courseIds) {
-      const { data: sessions, error: sessionErr } = await supabase
+      const { data: sessions, error: sessionErr } = await db
         .from("sessions")
         .select("id")
         .eq("org_id", orgId)
@@ -76,14 +76,14 @@ export async function POST(request: Request) {
 
       const studentIds = rows.filter((row) => row.course_id === courseId).map((row) => row.student_id);
       await seedAttendanceForSessions(
-        supabase,
+        db,
         orgId,
         sessions?.map((session) => session.id) ?? [],
         studentIds
       );
     }
 
-    await logAudit(supabase, orgId, session.user.id, "create", "enrollment", data?.[0]?.id, {
+    await logAudit(db, orgId, session.user.id, "create", "enrollment", data?.[0]?.id, {
       count: rows.length,
       student_ids: rows.map((r) => r.student_id),
       course_ids: rows.map((r) => r.course_id),

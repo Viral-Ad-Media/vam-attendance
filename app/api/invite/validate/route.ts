@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 import { createHash } from "crypto";
 import { ApiError, respondWithError } from "@/lib/api/errors";
 
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { token } = validateSchema.parse(body);
-    const service = getServiceClient();
+    const service = getAdminDatabase();
 
     // Search for invite by token
     const { data: invites, error: inviteError } = await service

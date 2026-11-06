@@ -57,27 +57,14 @@ async function main() {
 
   if (args.dryRun) return;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const orgId = args.orgId ?? process.env.SEED_ORG_ID;
+  if (!process.env.DATABASE_URL) throw new Error("Set DATABASE_URL in .env.local.");
+  if (!orgId) throw new Error("Set SEED_ORG_ID or pass --org-id=<uuid>.");
+  const { getAdminDatabase } = await import("../lib/db/service.ts");
+  const database = getAdminDatabase();
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error(
-      "Missing Supabase credentials. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local."
-    );
-  }
-  if (!orgId) {
-    throw new Error("Missing target org. Set SEED_ORG_ID or pass --org-id=<uuid>.");
-  }
-
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { "X-Client-Info": "vam-amazon-walmart-seed" } },
-  });
-
-  await assertOrgExists(supabase, orgId);
-  const result = await seedSupabase(supabase, orgId, seed);
+  await assertOrgExists(database, orgId);
+  const result = await seedDatabase(database, orgId, seed);
 
   console.log("");
   console.log("Seed complete:");
@@ -116,7 +103,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`Seed Amazon/Walmart schedule data into Supabase.
+  console.log(`Seed Amazon/Walmart schedule data into Neon.
 
 Usage:
   npm run seed:amazon-walmart -- --dry-run
@@ -445,19 +432,19 @@ function printSummary(seed, config) {
   }
 }
 
-async function assertOrgExists(supabase, orgId) {
-  const { data, error } = await supabase.from("organizations").select("id").eq("id", orgId).maybeSingle();
+async function assertOrgExists(database, orgId) {
+  const { data, error } = await database.from("organizations").select("id").eq("id", orgId).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error(`Organization not found: ${orgId}`);
 }
 
-async function seedSupabase(supabase, orgId, seed) {
-  const teacherIds = await upsertTeachers(supabase, orgId, seed.teachers);
-  const studentIds = await upsertStudents(supabase, orgId, seed.students, seed.schedules);
-  const courseIds = await upsertCourses(supabase, orgId, seed.schedules, teacherIds);
-  const sessionIds = await upsertSessions(supabase, orgId, seed.schedules, courseIds, teacherIds);
-  const enrollmentCount = await upsertEnrollments(supabase, orgId, seed, studentIds, courseIds, teacherIds);
-  const attendanceCount = await upsertAttendance(supabase, orgId, seed, studentIds, sessionIds);
+async function seedDatabase(database, orgId, seed) {
+  const teacherIds = await upsertTeachers(database, orgId, seed.teachers);
+  const studentIds = await upsertStudents(database, orgId, seed.students, seed.schedules);
+  const courseIds = await upsertCourses(database, orgId, seed.schedules, teacherIds);
+  const sessionIds = await upsertSessions(database, orgId, seed.schedules, courseIds, teacherIds);
+  const enrollmentCount = await upsertEnrollments(database, orgId, seed, studentIds, courseIds, teacherIds);
+  const attendanceCount = await upsertAttendance(database, orgId, seed, studentIds, sessionIds);
 
   return {
     teachers: seed.teachers.length,
@@ -469,7 +456,7 @@ async function seedSupabase(supabase, orgId, seed) {
   };
 }
 
-async function upsertTeachers(supabase, orgId, teachers) {
+async function upsertTeachers(database, orgId, teachers) {
   if (!teachers.length) return new Map();
 
   const rows = teachers.map((teacher) => ({
@@ -478,7 +465,7 @@ async function upsertTeachers(supabase, orgId, teachers) {
     email: teacher.email,
   }));
 
-  const { data, error } = await supabase
+  const { data, error } = await database
     .from("teachers")
     .upsert(rows, { onConflict: "org_id,email" })
     .select("id,email");
@@ -487,7 +474,7 @@ async function upsertTeachers(supabase, orgId, teachers) {
   return new Map((data ?? []).map((teacher) => [teacher.email, teacher.id]));
 }
 
-async function upsertStudents(supabase, orgId, students, schedules) {
+async function upsertStudents(database, orgId, students, schedules) {
   if (!students.length) return new Map();
 
   const scheduleByKey = new Map(schedules.map((schedule) => [schedule.key, schedule]));
@@ -504,7 +491,7 @@ async function upsertStudents(supabase, orgId, students, schedules) {
     };
   });
 
-  const { data, error } = await supabase
+  const { data, error } = await database
     .from("students")
     .upsert(rows, { onConflict: "org_id,email" })
     .select("id,email");
@@ -513,11 +500,11 @@ async function upsertStudents(supabase, orgId, students, schedules) {
   return new Map((data ?? []).map((student) => [student.email, student.id]));
 }
 
-async function upsertCourses(supabase, orgId, schedules, teacherIds) {
+async function upsertCourses(database, orgId, schedules, teacherIds) {
   if (!schedules.length) return new Map();
 
   const titles = schedules.map((schedule) => schedule.title);
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing, error: existingError } = await database
     .from("courses")
     .select("id,title")
     .eq("org_id", orgId)
@@ -547,10 +534,10 @@ async function upsertCourses(supabase, orgId, schedules, teacherIds) {
 
     const existingId = courseIds.get(schedule.title);
     if (existingId) {
-      const { error } = await supabase.from("courses").update(payload).eq("id", existingId);
+      const { error } = await database.from("courses").update(payload).eq("id", existingId);
       if (error) throw error;
     } else {
-      const { data, error } = await supabase.from("courses").insert(payload).select("id").single();
+      const { data, error } = await database.from("courses").insert(payload).select("id").single();
       if (error) throw error;
       courseIds.set(schedule.title, data.id);
     }
@@ -559,12 +546,12 @@ async function upsertCourses(supabase, orgId, schedules, teacherIds) {
   return new Map(schedules.map((schedule) => [schedule.key, courseIds.get(schedule.title)]));
 }
 
-async function upsertSessions(supabase, orgId, schedules, courseIds, teacherIds) {
+async function upsertSessions(database, orgId, schedules, courseIds, teacherIds) {
   const idsBySchedule = new Map();
   if (!schedules.length) return idsBySchedule;
 
   const courseIdValues = [...courseIds.values()].filter(Boolean);
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing, error: existingError } = await database
     .from("sessions")
     .select("id,course_id,title")
     .in("course_id", courseIdValues);
@@ -596,11 +583,11 @@ async function upsertSessions(supabase, orgId, schedules, courseIds, teacherIds)
       const existingId = existingByCourseAndTitle.get(existingKey);
 
       if (existingId) {
-        const { error } = await supabase.from("sessions").update(payload).eq("id", existingId);
+        const { error } = await database.from("sessions").update(payload).eq("id", existingId);
         if (error) throw error;
         scheduleSessionIds.set(session.classIndex, existingId);
       } else {
-        const { data, error } = await supabase.from("sessions").insert(payload).select("id").single();
+        const { data, error } = await database.from("sessions").insert(payload).select("id").single();
         if (error) throw error;
         scheduleSessionIds.set(session.classIndex, data.id);
       }
@@ -610,7 +597,7 @@ async function upsertSessions(supabase, orgId, schedules, courseIds, teacherIds)
   return idsBySchedule;
 }
 
-async function upsertEnrollments(supabase, orgId, seed, studentIds, courseIds, teacherIds) {
+async function upsertEnrollments(database, orgId, seed, studentIds, courseIds, teacherIds) {
   const rows = [];
 
   for (const schedule of seed.schedules) {
@@ -632,7 +619,7 @@ async function upsertEnrollments(supabase, orgId, seed, studentIds, courseIds, t
 
   if (!rows.length) return 0;
 
-  const { error } = await supabase
+  const { error } = await database
     .from("enrollments")
     .upsert(rows, { onConflict: "org_id,student_id,course_id" });
   if (error) throw error;
@@ -640,7 +627,7 @@ async function upsertEnrollments(supabase, orgId, seed, studentIds, courseIds, t
   return rows.length;
 }
 
-async function upsertAttendance(supabase, orgId, seed, studentIds, sessionIds) {
+async function upsertAttendance(database, orgId, seed, studentIds, sessionIds) {
   const rows = [];
 
   for (const schedule of seed.schedules) {
@@ -663,7 +650,7 @@ async function upsertAttendance(supabase, orgId, seed, studentIds, sessionIds) {
 
   if (!rows.length) return 0;
 
-  const { error } = await supabase.from("attendance").upsert(rows, {
+  const { error } = await database.from("attendance").upsert(rows, {
     onConflict: "org_id,session_id,student_id",
   });
   if (error) throw error;

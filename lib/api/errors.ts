@@ -16,14 +16,14 @@ export class ApiError extends Error {
   }
 }
 
-type SupabasePostgrestError = {
+type DatabaseError = {
   code?: string;
   message?: string;
   details?: string | null;
   hint?: string | null;
 };
 
-function mapPostgrestError(error: SupabasePostgrestError) {
+function mapDatabaseError(error: DatabaseError) {
   if (!error || !error.code) return null;
 
   // Common PG / PostgREST codes we see in this app
@@ -35,6 +35,8 @@ function mapPostgrestError(error: SupabasePostgrestError) {
   };
 
   switch (error.code) {
+    case "PGRST116":
+      return { status:404, body:{ error:"Record not found" } };
     case "42501": // insufficient_privilege (often RLS)
       return {
         status: 403,
@@ -85,7 +87,7 @@ export function respondWithError(error: unknown, context?: { action?: string }) 
     return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
   }
 
-  const pg = mapPostgrestError(error as SupabasePostgrestError);
+  const pg = mapDatabaseError(error as DatabaseError);
   if (pg) {
     console.error(`${ctx}PostgREST error`, error);
     return NextResponse.json(pg.body, { status: pg.status });

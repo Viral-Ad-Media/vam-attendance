@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "CSV exceeds 1000 row limit" }, { status: 400 });
     }
 
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
     const valid: Array<{
       org_id: string;
@@ -85,14 +85,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No valid rows to import", errors }, { status: 422 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("students")
       .insert(valid)
       .select("id");
 
     if (error) throw error;
 
-    await logAudit(supabase, orgId, session.user.id, "create", "student", undefined, {
+    await logAudit(db, orgId, session.user.id, "create", "student", undefined, {
       import: true,
       count: valid.length,
     });

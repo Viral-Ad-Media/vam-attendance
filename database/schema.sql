@@ -1,10 +1,50 @@
+-- Neon PostgreSQL schema. Apply once with npm run db:migrate.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+END $$;
+GRANT authenticated TO CURRENT_USER;
+CREATE SCHEMA IF NOT EXISTS app_private;
+CREATE OR REPLACE FUNCTION app_private.user_id() RETURNS uuid LANGUAGE sql STABLE AS $$
+  SELECT NULLIF(current_setting('app.user_id',true),'')::uuid;
+$$;
+GRANT USAGE ON SCHEMA app_private, public TO authenticated;
+GRANT EXECUTE ON FUNCTION app_private.user_id() TO authenticated;
+
+CREATE TABLE IF NOT EXISTS auth_users (
+ id uuid PRIMARY KEY, name text NOT NULL, email text NOT NULL UNIQUE,
+ "emailVerified" boolean NOT NULL DEFAULT false, image text,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(),
+ app_metadata jsonb NOT NULL DEFAULT '{}', user_metadata jsonb NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS auth_accounts (
+ id uuid PRIMARY KEY, "accountId" text NOT NULL, "providerId" text NOT NULL,
+ "userId" uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+ "accessToken" text, "refreshToken" text, "idToken" text,
+ "accessTokenExpiresAt" timestamptz, "refreshTokenExpiresAt" timestamptz, scope text, password text,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(),
+ UNIQUE("providerId","accountId")
+);
+CREATE TABLE IF NOT EXISTS auth_sessions (
+ id uuid PRIMARY KEY, "expiresAt" timestamptz NOT NULL, token text NOT NULL UNIQUE,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(),
+ "ipAddress" text, "userAgent" text, "userId" uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS auth_accounts_user_idx ON auth_accounts("userId");
+CREATE INDEX IF NOT EXISTS auth_sessions_user_idx ON auth_sessions("userId");
+CREATE TABLE IF NOT EXISTS auth_verifications (
+ id uuid PRIMARY KEY, identifier text NOT NULL, value text NOT NULL, "expiresAt" timestamptz NOT NULL,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS auth_verifications_identifier_idx ON auth_verifications(identifier);
+-- Auth tables are server-only. The unprivileged data role cannot read credentials or sessions.
+REVOKE ALL ON auth_users,auth_accounts,auth_sessions,auth_verifications FROM PUBLIC, authenticated;
 -- SQL Migration: Multi-tenant schema with org-scoped RLS for VAM Attendance
 
 -- 1) Core tables (create before functions that reference them)
 CREATE TABLE IF NOT EXISTS organizations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  owner_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  owner_id uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
   stripe_customer_id text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -13,9 +53,9 @@ CREATE TABLE IF NOT EXISTS organizations (
 CREATE TABLE IF NOT EXISTS memberships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
   role text NOT NULL CHECK (role IN ('owner','admin','teacher','student','viewer')),
-  invited_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  invited_by uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   invited_at timestamptz DEFAULT now(),
   accepted_at timestamptz,
   seat_number int,
@@ -31,7 +71,7 @@ CREATE TABLE IF NOT EXISTS invites (
   role text NOT NULL CHECK (role IN ('admin','teacher','student','viewer')),
   token text NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL,
-  invited_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  invited_by uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   accepted_at timestamptz,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -54,7 +94,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE TABLE IF NOT EXISTS audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  actor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  actor_id uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   action text NOT NULL,
   entity text NOT NULL,
   entity_id uuid,
@@ -63,7 +103,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   email text NOT NULL,
   full_name text,
@@ -183,7 +223,7 @@ CREATE TABLE IF NOT EXISTS student_feedback (
   title text NOT NULL,
   body text NOT NULL,
   reviewed_at timestamptz DEFAULT now(),
-  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -206,11 +246,6 @@ CREATE TABLE IF NOT EXISTS student_feedback_requests (
 );
 
 -- 2) Helper functions (after tables exist)
-CREATE OR REPLACE FUNCTION public.app_org_id()
-RETURNS uuid LANGUAGE sql STABLE AS $$
-  SELECT NULLIF(auth.jwt()->>'org_id','')::uuid;
-$$;
-
 CREATE OR REPLACE FUNCTION public.app_has_org_role(check_org uuid, roles text[])
 RETURNS boolean
 LANGUAGE sql
@@ -222,7 +257,7 @@ AS $$
     EXISTS (
       SELECT 1 FROM memberships m
       WHERE m.org_id = check_org
-        AND m.user_id = auth.uid()
+        AND m.user_id = app_private.user_id()
         AND m.role = ANY(roles)
     )
     OR (
@@ -230,7 +265,7 @@ AS $$
       AND EXISTS (
         SELECT 1 FROM organizations o
         WHERE o.id = check_org
-          AND o.owner_id = auth.uid()
+          AND o.owner_id = app_private.user_id()
       )
     );
 $$;
@@ -246,12 +281,12 @@ AS $$
     EXISTS (
       SELECT 1 FROM memberships m
       WHERE m.org_id = check_org
-        AND m.user_id = auth.uid()
+        AND m.user_id = app_private.user_id()
     )
     OR EXISTS (
       SELECT 1 FROM organizations o
       WHERE o.id = check_org
-        AND o.owner_id = auth.uid()
+        AND o.owner_id = app_private.user_id()
     );
 $$;
 
@@ -313,12 +348,12 @@ END$$;
 -- 6) Policies
 CREATE POLICY "Organizations are org-scoped readable by members"
   ON organizations FOR SELECT USING (
-    owner_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM memberships m WHERE m.org_id = organizations.id AND m.user_id = auth.uid())
+    owner_id = app_private.user_id()
+    OR EXISTS (SELECT 1 FROM memberships m WHERE m.org_id = organizations.id AND m.user_id = app_private.user_id())
   );
-CREATE POLICY "Organizations insert by owner" ON organizations FOR INSERT WITH CHECK (owner_id = auth.uid());
-CREATE POLICY "Organizations update by owner" ON organizations FOR UPDATE USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
-CREATE POLICY "Organizations delete by owner" ON organizations FOR DELETE USING (owner_id = auth.uid());
+CREATE POLICY "Organizations insert by owner" ON organizations FOR INSERT WITH CHECK (owner_id = app_private.user_id());
+CREATE POLICY "Organizations update by owner" ON organizations FOR UPDATE USING (owner_id = app_private.user_id()) WITH CHECK (owner_id = app_private.user_id());
+CREATE POLICY "Organizations delete by owner" ON organizations FOR DELETE USING (owner_id = app_private.user_id());
 
 CREATE POLICY "Memberships are org-scoped readable by members"
   ON memberships FOR SELECT USING (public.app_is_org_member(org_id));
@@ -352,11 +387,11 @@ CREATE POLICY "Audit logs insert by members"
   ON audit_logs FOR INSERT WITH CHECK (public.app_is_org_member(org_id));
 
 CREATE POLICY "Users readable by self within org"
-  ON users FOR SELECT USING (id = auth.uid());
+  ON users FOR SELECT USING (id = app_private.user_id());
 CREATE POLICY "Users readable by org admins"
   ON users FOR SELECT USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
 CREATE POLICY "Users update self within org"
-  ON users FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+  ON users FOR UPDATE USING (id = app_private.user_id()) WITH CHECK (id = app_private.user_id());
 
 CREATE POLICY "Teachers readable by org members"
   ON teachers FOR SELECT USING (public.app_is_org_member(org_id));
@@ -480,7 +515,7 @@ CREATE OR REPLACE FUNCTION public.app_teacher_owns(check_org uuid, check_teacher
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT public.app_has_org_role(check_org, ARRAY['teacher']) AND EXISTS (
     SELECT 1 FROM public.teachers t WHERE t.id = check_teacher
-      AND t.org_id = check_org AND t.user_id = auth.uid()
+      AND t.org_id = check_org AND t.user_id = app_private.user_id()
   );
 $$;
 
@@ -520,7 +555,7 @@ CREATE OR REPLACE FUNCTION public.app_teacher_feedback(
         AND a.student_id = check_student AND public.app_teacher_session(check_org, a.session_id)));
 $$;
 
--- These SECURITY DEFINER functions only return access decisions for auth.uid().
+-- These SECURITY DEFINER functions only return access decisions for app_private.user_id().
 REVOKE ALL ON FUNCTION public.app_teacher_owns(uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_teacher_session(uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_teacher_course(uuid,uuid) FROM PUBLIC;
@@ -736,10 +771,10 @@ ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY scoped_read ON public.subscriptions FOR SELECT TO authenticated USING (public.app_is_org_member(org_id));
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY scoped_read ON public.audit_logs FOR SELECT TO authenticated USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY member_audit_insert ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (public.app_is_org_member(org_id) AND actor_id = auth.uid());
+CREATE POLICY member_audit_insert ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (public.app_is_org_member(org_id) AND actor_id = app_private.user_id());
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY scoped_read ON public.users FOR SELECT TO authenticated USING (id = auth.uid() OR public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY self_update ON public.users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY scoped_read ON public.users FOR SELECT TO authenticated USING (id = app_private.user_id() OR public.app_has_org_role(org_id, ARRAY['owner','admin']));
+CREATE POLICY self_update ON public.users FOR UPDATE TO authenticated USING (id = app_private.user_id()) WITH CHECK (id = app_private.user_id());
 ALTER TABLE public.teachers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY scoped_read ON public.teachers FOR SELECT TO authenticated USING (public.app_has_org_role(org_id, ARRAY['owner','admin','student','viewer']) OR public.app_teacher_owns(org_id, id));
 CREATE POLICY scoped_insert ON public.teachers FOR INSERT TO authenticated WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
@@ -782,3 +817,7 @@ CREATE POLICY scoped_update ON public.student_feedback_requests FOR UPDATE TO au
 CREATE POLICY scoped_delete ON public.student_feedback_requests FOR DELETE TO authenticated USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
 
 COMMIT;
+
+GRANT SELECT,INSERT,UPDATE,DELETE ON organizations,memberships,invites,subscriptions,audit_logs,users,teachers,students,courses,sessions,enrollments,attendance,student_feedback,student_feedback_requests TO authenticated;
+CREATE POLICY self_profile_insert ON public.users FOR INSERT TO authenticated
+ WITH CHECK (id = app_private.user_id() AND public.app_is_org_member(org_id));

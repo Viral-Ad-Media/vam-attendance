@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 
@@ -20,15 +20,15 @@ function readMetadataString(input: unknown, key: string) {
 
 export async function GET() {
   try {
-    const { supabase, session, orgId, role, isSuperadmin } = await getRouteContext();
+    const { db, session, orgId, role, isSuperadmin } = await getRouteContext();
     const [profileResult, orgResult] = await Promise.all([
-      supabase
+      db
         .from("users")
         .select("id, org_id, email, full_name, phone, location, bio, avatar_url, created_at, updated_at")
         .eq("org_id", orgId)
         .eq("id", session.user.id)
         .maybeSingle(),
-      supabase
+      db
         .from("organizations")
         .select("id, name, owner_id, created_at")
         .eq("id", orgId)
@@ -79,13 +79,13 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const payload = profileUpdateSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
     if (Object.keys(payload).length === 0) {
       return NextResponse.json({ error: "No profile updates provided" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("users")
       .upsert(
         { id: session.user.id, org_id: orgId, email: session.user.email ?? "", ...payload },
@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "update", "user", session.user.id, payload);
+    await logAudit(db, orgId, session.user.id, "update", "user", session.user.id, payload);
     return NextResponse.json(data);
   } catch (error) {
     return respondWithError(error, { action: "update-account-profile" });

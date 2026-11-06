@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 import { sendTeacherSetupEmail } from "@/lib/api/teacher-setup-email";
 import { ApiError, respondWithError } from "@/lib/api/errors";
 
@@ -33,8 +33,8 @@ function getSetupEmailErrorMessage(error: unknown) {
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("teachers")
       .select("*")
       .eq("org_id", orgId)
@@ -53,9 +53,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId, role } = await getRouteContext();
+    const { db, session, orgId, role } = await getRouteContext();
     requireOrgAdmin(role);
-    const service = getServiceClient();
+    const service = getAdminDatabase();
 
     const { sendPasswordSetup, password, ...teacherUpdates } = payload;
     const normalizedUpdates = {
@@ -65,7 +65,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     };
     const shouldSendPasswordSetup = Boolean(sendPasswordSetup && !password);
 
-    const { data: teacherAccount, error: teacherLookupError } = await supabase
+    const { data: teacherAccount, error: teacherLookupError } = await db
       .from("teachers")
       .select("user_id")
       .eq("org_id", orgId)
@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("teachers")
       .update(normalizedUpdates)
       .eq("org_id", orgId)
@@ -115,7 +115,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    const { data: orgData } = await supabase
+    const { data: orgData } = await db
       .from("organizations")
       .select("name")
       .eq("id", orgId)
@@ -139,7 +139,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    await logAudit(supabase, orgId, session.user.id, "update", "teacher", id, {
+    await logAudit(db, orgId, session.user.id, "update", "teacher", id, {
       ...normalizedUpdates,
       password_updated: Boolean(password),
       setup_email_sent: setupEmailSent,
@@ -159,11 +159,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId, role } = await getRouteContext();
+    const { db, session, orgId, role } = await getRouteContext();
     requireOrgAdmin(role);
-    const service = getServiceClient();
+    const service = getAdminDatabase();
 
-    const { data: teacherRow, error: teacherLookupError } = await supabase
+    const { data: teacherRow, error: teacherLookupError } = await db
       .from("teachers")
       .select("id, user_id")
       .eq("org_id", orgId)
@@ -171,7 +171,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
       .single();
     if (teacherLookupError) throw teacherLookupError;
 
-    const { error } = await supabase
+    const { error } = await db
       .from("teachers")
       .delete()
       .eq("org_id", orgId)
@@ -180,25 +180,19 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     if (error) throw error;
 
     if (teacherRow.user_id) {
-      const { error: profileDeleteError } = await service
-        .from("users")
-        .delete()
-        .eq("id", teacherRow.user_id)
-        .eq("org_id", orgId);
-      if (profileDeleteError) throw profileDeleteError;
-
-      const { error: membershipDeleteError } = await service
-        .from("memberships")
-        .delete()
-        .eq("org_id", orgId)
-        .eq("user_id", teacherRow.user_id);
+      const { error: membershipDeleteError } = await service.from("memberships").delete().eq("org_id", orgId).eq("user_id", teacherRow.user_id);
       if (membershipDeleteError) throw membershipDeleteError;
-
-      const { error: authDeleteError } = await service.auth.admin.deleteUser(teacherRow.user_id);
-      if (authDeleteError) throw authDeleteError;
+      const otherMemberships = await service.from("memberships").select("id").eq("user_id",teacherRow.user_id).limit(1);
+      const ownedOrganizations = await service.from("organizations").select("id").eq("owner_id",teacherRow.user_id).limit(1);
+      if (otherMemberships.error) throw otherMemberships.error;
+      if (ownedOrganizations.error) throw ownedOrganizations.error;
+      if (!otherMemberships.data?.length && !ownedOrganizations.data?.length) {
+        const { error: authDeleteError } = await service.auth.admin.deleteUser(teacherRow.user_id);
+        if (authDeleteError) throw authDeleteError;
+      }
     }
 
-    await logAudit(supabase, orgId, session.user.id, "delete", "teacher", id);
+    await logAudit(db, orgId, session.user.id, "delete", "teacher", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return respondWithError(error, { action: "teacher" });
