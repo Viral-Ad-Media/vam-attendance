@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
@@ -22,7 +22,7 @@ const feedbackSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, orgId } = await getRouteContext();
+    const { db, orgId } = await getRouteContext();
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get("student_id");
     const teacherId = searchParams.get("teacher_id");
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const sentiment = searchParams.get("sentiment");
     const category = searchParams.get("category");
 
-    let query = supabase
+    let query = db
       .from("student_feedback")
       .select("*")
       .eq("org_id", orgId)
@@ -65,9 +65,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = feedbackSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("student_feedback")
       .insert([
         {
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "create", "student_feedback", data.id, {
+    await logAudit(db, orgId, session.user.id, "create", "student_feedback", data.id, {
       attendance_id: data.attendance_id,
       student_id: data.student_id,
       teacher_id: data.teacher_id,

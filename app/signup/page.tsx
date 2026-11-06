@@ -68,7 +68,7 @@ export default function SignupPage() {
         return;
       }
 
-      setSuccess("Signup successful. Check your email to verify your account.");
+      setSuccess(data.message || "Signup successful. Check your email to verify your account.");
       setFormData({ name: "", email: "", password: "", confirmPassword: "" });
       setTimeout(() => {
         router.push("/login");

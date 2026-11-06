@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { respondWithError } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, orgId } = await getRouteContext();
+    const { db, orgId } = await getRouteContext();
     const { searchParams } = new URL(request.url);
     const threshold = Number(searchParams.get("threshold") ?? "75");
 
     const [studentsRes, attendanceRes] = await Promise.all([
-      supabase.from("students").select("id, name, email, program, class_name").eq("org_id", orgId),
-      supabase.from("attendance").select("student_id, status").eq("org_id", orgId),
+      db.from("students").select("id, name, email, program, class_name").eq("org_id", orgId),
+      db.from("attendance").select("student_id, status").eq("org_id", orgId),
     ]);
 
     if (studentsRes.error) throw studentsRes.error;

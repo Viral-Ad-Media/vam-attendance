@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { ApiError, respondWithError } from "@/lib/api/errors";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 import { sendTeacherSetupEmail } from "@/lib/api/teacher-setup-email";
 
 const teacherSchema = z.object({
@@ -34,8 +34,8 @@ function getSetupEmailErrorMessage(error: unknown) {
 
 export async function GET() {
   try {
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("teachers")
       .select("*")
       .eq("org_id", orgId)
@@ -61,9 +61,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = teacherSchema.parse(body);
-    const { supabase, session, orgId, role } = await getRouteContext();
+    const { db, session, orgId, role } = await getRouteContext();
     requireOrgAdmin(role);
-    const service = getServiceClient();
+    const service = getAdminDatabase();
 
     const teacherEmail = payload.email.trim().toLowerCase();
     const teacherName = payload.name.trim();
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     const passwordForAuth = providedPassword || temporaryPassword;
     const nowIso = new Date().toISOString();
 
-    const { data: orgData } = await supabase
+    const { data: orgData } = await db
       .from("organizations")
       .select("name")
       .eq("id", orgId)
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
     void password;
     void sendSetupFlag;
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("teachers")
       .insert([
         {
@@ -184,7 +184,7 @@ export async function POST(request: Request) {
       }
     }
 
-    await logAudit(supabase, orgId, session.user.id, "create", "teacher", data.id, {
+    await logAudit(db, orgId, session.user.id, "create", "teacher", data.id, {
       email: data.email,
       user_id: authUserId,
       setup_email_sent: setupEmailSent,

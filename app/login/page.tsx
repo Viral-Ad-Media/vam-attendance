@@ -48,17 +48,9 @@ export default function LoginPage() {
         return;
       }
 
-      const role =
-        data.user?.app_metadata?.role ||
-        data.user?.user_metadata?.role ||
-        data.user?.app_metadata?.roles?.[0] ||
-        "";
-
-      if (role === "teacher") {
-        router.push("/dashboard/teacher");
-      } else {
-        router.push("/dashboard");
-      }
+      const profile = await fetch("/api/account/profile", { cache: "no-store" });
+      const account = profile.ok ? await profile.json() : null;
+      router.push(account?.role === "teacher" ? "/dashboard/teacher" : "/dashboard");
     } catch {
       setError("An error occurred. Please try again.");
       setLoading(false);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
@@ -22,8 +22,8 @@ const courseSchema = z.object({
 
 export async function GET() {
   try {
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("courses")
       .select("*, lead_teacher_id")
       .eq("org_id", orgId)
@@ -49,8 +49,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const payload = courseSchema.parse(body);
     const { meeting_days, ...coursePayload } = payload;
-    const { supabase, session, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, session, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("courses")
       .insert([
         {
@@ -77,24 +77,24 @@ export async function POST(request: Request) {
       starts_at: payload.starts_at ?? null,
     });
 
-    const { data: insertedSessions, error: sessionError } = await supabase.from("sessions").insert(sessionRows).select("id");
+    const { data: insertedSessions, error: sessionError } = await db.from("sessions").insert(sessionRows).select("id");
     if (sessionError) throw sessionError;
     if (insertedSessions?.length) {
-      const { data: enrollments, error: enrollErr } = await supabase
+      const { data: enrollments, error: enrollErr } = await db
         .from("enrollments")
         .select("student_id")
         .eq("org_id", orgId)
         .eq("course_id", data.id);
       if (enrollErr) throw enrollErr;
       await seedAttendanceForSessions(
-        supabase,
+        db,
         orgId,
         insertedSessions.map((session) => session.id),
         enrollments?.map((enrollment) => enrollment.student_id) ?? []
       );
     }
 
-    await logAudit(supabase, orgId, session.user.id, "create", "course", data.id, { title: data.title });
+    await logAudit(db, orgId, session.user.id, "create", "course", data.id, { title: data.title });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     return respondWithError(error, { action: "create-course" });

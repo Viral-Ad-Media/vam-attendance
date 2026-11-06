@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 
 const updateSchema = z.object({
@@ -32,12 +32,12 @@ function handleError(error: unknown) {
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, orgId, role, teacherId } = await getRouteContext();
+    const { db, orgId, role, teacherId } = await getRouteContext();
     if (role === "teacher" && !teacherId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    let query = supabase.from("sessions").select("*").eq("org_id", orgId).eq("id", id);
+    let query = db.from("sessions").select("*").eq("org_id", orgId).eq("id", id);
     if (role === "teacher" && teacherId) {
       query = query.eq("teacher_id", teacherId);
     }
@@ -55,19 +55,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    const { db, session, orgId, role, teacherId } = await getRouteContext();
     if (role === "teacher" && !teacherId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    let query = supabase.from("sessions").update(payload).eq("org_id", orgId).eq("id", id);
+    let query = db.from("sessions").update(payload).eq("org_id", orgId).eq("id", id);
     if (role === "teacher" && teacherId) {
       query = query.eq("teacher_id", teacherId);
     }
     const { data, error } = await query.select().single();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "update", "session", id, payload);
+    await logAudit(db, orgId, session.user.id, "update", "session", id, payload);
     return NextResponse.json(data);
   } catch (error) {
     return handleError(error);
@@ -77,19 +77,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    const { db, session, orgId, role, teacherId } = await getRouteContext();
     if (role === "teacher" && !teacherId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    let query = supabase.from("sessions").delete().eq("org_id", orgId).eq("id", id);
+    let query = db.from("sessions").delete().eq("org_id", orgId).eq("id", id);
     if (role === "teacher" && teacherId) {
       query = query.eq("teacher_id", teacherId);
     }
     const { error } = await query;
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "delete", "session", id);
+    await logAudit(db, orgId, session.user.id, "delete", "session", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleError(error);

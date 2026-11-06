@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { respondWithError } from "@/lib/api/errors";
 
 export async function GET(request: Request) {
   try {
-    const { supabase, orgId } = await getRouteContext();
+    const { db, orgId } = await getRouteContext();
     const url = new URL(request.url);
     const action = url.searchParams.get("action");
     const entity = url.searchParams.get("entity");
     const actorId = url.searchParams.get("actor_id");
     const limit = Number(url.searchParams.get("limit") ?? 200);
 
-    let query = supabase
+    let query = db
       .from("audit_logs")
       .select("*")
       .eq("org_id", orgId)

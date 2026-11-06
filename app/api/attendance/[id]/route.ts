@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 import { sendAttendanceFeedbackRequest } from "@/lib/api/student-feedback-email";
+
+type AttendanceRecord = { id: string; org_id: string; session_id: string; student_id: string; status: "present" | "absent" | "late" };
 
 const updateSchema = z.object({
   status: z.enum(["present", "absent", "late"]).optional(),
@@ -13,17 +15,17 @@ const updateSchema = z.object({
 type RouteParamsPromise = { params: Promise<{ id: string }> };
 
 async function assertTeacherOwnsAttendance(
-  supabase: Awaited<ReturnType<typeof getRouteContext>>["supabase"],
+  db: Awaited<ReturnType<typeof getRouteContext>>["db"],
   orgId: string,
   teacherId: string,
   attendanceId: string
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("attendance")
     .select("session_id, sessions!inner(teacher_id)")
     .eq("org_id", orgId)
     .eq("id", attendanceId)
-    .single();
+    .single<AttendanceRecord>();
   if (error) throw error;
   const sessionTeacherId = (data as unknown as { sessions: { teacher_id: string | null } }).sessions?.teacher_id;
   return sessionTeacherId === teacherId;
@@ -51,19 +53,19 @@ async function trySendFeedbackEmail(attendance: {
 export async function GET(_: NextRequest, { params }: RouteParamsPromise) {
   try {
     const { id } = await params;
-    const { supabase, orgId, role, teacherId } = await getRouteContext();
+    const { db, orgId, role, teacherId } = await getRouteContext();
     if (role === "teacher") {
-      if (!teacherId || !(await assertTeacherOwnsAttendance(supabase, orgId, teacherId, id))) {
+      if (!teacherId || !(await assertTeacherOwnsAttendance(db, orgId, teacherId, id))) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("attendance")
       .select("*")
       .eq("org_id", orgId)
       .eq("id", id)
-      .single();
+      .single<AttendanceRecord>();
 
     if (error) throw error;
     return NextResponse.json(data);
@@ -77,23 +79,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    const { db, session, orgId, role, teacherId } = await getRouteContext();
     if (role === "teacher") {
-      if (!teacherId || !(await assertTeacherOwnsAttendance(supabase, orgId, teacherId, id))) {
+      if (!teacherId || !(await assertTeacherOwnsAttendance(db, orgId, teacherId, id))) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("attendance")
       .update(payload)
       .eq("org_id", orgId)
       .eq("id", id)
       .select()
-      .single();
+      .single<AttendanceRecord>();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "update", "attendance", id, payload);
+    await logAudit(db, orgId, session.user.id, "update", "attendance", id, payload);
     const feedbackEmail = await trySendFeedbackEmail(data, orgId);
     return NextResponse.json({ ...data, feedback_email: feedbackEmail });
   } catch (error) {
@@ -104,21 +106,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParamsPromise
 export async function DELETE(_: NextRequest, { params }: RouteParamsPromise) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId, role, teacherId } = await getRouteContext();
+    const { db, session, orgId, role, teacherId } = await getRouteContext();
     if (role === "teacher") {
-      if (!teacherId || !(await assertTeacherOwnsAttendance(supabase, orgId, teacherId, id))) {
+      if (!teacherId || !(await assertTeacherOwnsAttendance(db, orgId, teacherId, id))) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("attendance")
       .delete()
       .eq("org_id", orgId)
       .eq("id", id);
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "delete", "attendance", id);
+    await logAudit(db, orgId, session.user.id, "delete", "attendance", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return respondWithError(error, { action: "delete-attendance" });

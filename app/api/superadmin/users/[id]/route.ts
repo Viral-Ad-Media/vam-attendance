@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 
 const updateSchema = z.object({
   superadmin: z.boolean(),
@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const service = getServiceClient();
+    const service = getAdminDatabase();
     const { data: targetUser, error: getUserError } = await service.auth.admin.getUserById(id);
     if (getUserError) throw getUserError;
     if (!targetUser?.user) {

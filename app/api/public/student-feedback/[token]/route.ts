@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ApiError, respondWithError } from "@/lib/api/errors";
 import { hashFeedbackToken } from "@/lib/api/student-feedback-email";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getAdminDatabase } from "@/lib/db/service";
 
 const submissionSchema = z.object({
   rating: z.number().int().min(1).max(5).optional().nullable(),
@@ -53,7 +53,7 @@ async function loadFeedbackRequest(token: string) {
     throw new ApiError("Feedback link is invalid", 404, "FEEDBACK_LINK_INVALID");
   }
 
-  const service = getServiceClient();
+  const service = getAdminDatabase();
   const tokenHash = hashFeedbackToken(token);
   const { data: request, error } = await service
     .from("student_feedback_requests")

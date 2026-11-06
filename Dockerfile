@@ -17,13 +17,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# NEXT_PUBLIC_* values are inlined into the client bundle at build time,
-# so they must be supplied as build args (not just runtime env vars).
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
-    NEXT_TELEMETRY_DISABLED=1
+# Neon and Better Auth configuration is read at runtime. No credentials are
+# required to build, and no database/auth keys are baked into browser assets.
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 

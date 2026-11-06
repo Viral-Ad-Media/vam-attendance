@@ -1,10 +1,50 @@
--- SQL Migration: Multi-tenant schema with org-scoped RLS for VAM Attendance
+-- Neon PostgreSQL schema. Apply once with npm run db:migrate.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+END $$;
+GRANT authenticated TO CURRENT_USER;
+CREATE SCHEMA IF NOT EXISTS app_private;
+CREATE OR REPLACE FUNCTION app_private.user_id() RETURNS uuid LANGUAGE sql STABLE AS $$
+  SELECT NULLIF(current_setting('app.user_id',true),'')::uuid;
+$$;
+GRANT USAGE ON SCHEMA app_private, public TO authenticated;
+GRANT EXECUTE ON FUNCTION app_private.user_id() TO authenticated;
+
+CREATE TABLE IF NOT EXISTS auth_users (
+ id uuid PRIMARY KEY, name text NOT NULL, email text NOT NULL UNIQUE,
+ "emailVerified" boolean NOT NULL DEFAULT false, image text,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(),
+ app_metadata jsonb NOT NULL DEFAULT '{}', user_metadata jsonb NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS auth_accounts (
+ id uuid PRIMARY KEY, "accountId" text NOT NULL, "providerId" text NOT NULL,
+ "userId" uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+ "accessToken" text, "refreshToken" text, "idToken" text,
+ "accessTokenExpiresAt" timestamptz, "refreshTokenExpiresAt" timestamptz, scope text, password text,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(),
+ UNIQUE("providerId","accountId")
+);
+CREATE TABLE IF NOT EXISTS auth_sessions (
+ id uuid PRIMARY KEY, "expiresAt" timestamptz NOT NULL, token text NOT NULL UNIQUE,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(),
+ "ipAddress" text, "userAgent" text, "userId" uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS auth_accounts_user_idx ON auth_accounts("userId");
+CREATE INDEX IF NOT EXISTS auth_sessions_user_idx ON auth_sessions("userId");
+CREATE TABLE IF NOT EXISTS auth_verifications (
+ id uuid PRIMARY KEY, identifier text NOT NULL, value text NOT NULL, "expiresAt" timestamptz NOT NULL,
+ "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS auth_verifications_identifier_idx ON auth_verifications(identifier);
+-- Auth tables are server-only. The unprivileged data role cannot read credentials or sessions.
+REVOKE ALL ON auth_users,auth_accounts,auth_sessions,auth_verifications FROM PUBLIC, authenticated;
+-- Application tables and org-scoped RLS for VAM Attendance
 
 -- 1) Core tables (create before functions that reference them)
 CREATE TABLE IF NOT EXISTS organizations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  owner_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  owner_id uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
   stripe_customer_id text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -13,9 +53,9 @@ CREATE TABLE IF NOT EXISTS organizations (
 CREATE TABLE IF NOT EXISTS memberships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
   role text NOT NULL CHECK (role IN ('owner','admin','teacher','student','viewer')),
-  invited_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  invited_by uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   invited_at timestamptz DEFAULT now(),
   accepted_at timestamptz,
   seat_number int,
@@ -31,7 +71,7 @@ CREATE TABLE IF NOT EXISTS invites (
   role text NOT NULL CHECK (role IN ('admin','teacher','student','viewer')),
   token text NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL,
-  invited_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  invited_by uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   accepted_at timestamptz,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -54,7 +94,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE TABLE IF NOT EXISTS audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  actor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  actor_id uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   action text NOT NULL,
   entity text NOT NULL,
   entity_id uuid,
@@ -63,7 +103,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   email text NOT NULL,
   full_name text,
@@ -139,8 +179,6 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS country text;
 
 -- Remove legacy teacher columns for existing deployments
-ALTER TABLE teachers DROP COLUMN IF EXISTS department;
-ALTER TABLE teachers DROP COLUMN IF EXISTS phone;
 
 CREATE TABLE IF NOT EXISTS enrollments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -183,7 +221,7 @@ CREATE TABLE IF NOT EXISTS student_feedback (
   title text NOT NULL,
   body text NOT NULL,
   reviewed_at timestamptz DEFAULT now(),
-  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by uuid REFERENCES auth_users(id) ON DELETE SET NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -206,11 +244,6 @@ CREATE TABLE IF NOT EXISTS student_feedback_requests (
 );
 
 -- 2) Helper functions (after tables exist)
-CREATE OR REPLACE FUNCTION public.app_org_id()
-RETURNS uuid LANGUAGE sql STABLE AS $$
-  SELECT NULLIF(auth.jwt()->>'org_id','')::uuid;
-$$;
-
 CREATE OR REPLACE FUNCTION public.app_has_org_role(check_org uuid, roles text[])
 RETURNS boolean
 LANGUAGE sql
@@ -222,7 +255,7 @@ AS $$
     EXISTS (
       SELECT 1 FROM memberships m
       WHERE m.org_id = check_org
-        AND m.user_id = auth.uid()
+        AND m.user_id = app_private.user_id()
         AND m.role = ANY(roles)
     )
     OR (
@@ -230,7 +263,7 @@ AS $$
       AND EXISTS (
         SELECT 1 FROM organizations o
         WHERE o.id = check_org
-          AND o.owner_id = auth.uid()
+          AND o.owner_id = app_private.user_id()
       )
     );
 $$;
@@ -246,12 +279,12 @@ AS $$
     EXISTS (
       SELECT 1 FROM memberships m
       WHERE m.org_id = check_org
-        AND m.user_id = auth.uid()
+        AND m.user_id = app_private.user_id()
     )
     OR EXISTS (
       SELECT 1 FROM organizations o
       WHERE o.id = check_org
-        AND o.owner_id = auth.uid()
+        AND o.owner_id = app_private.user_id()
     );
 $$;
 
@@ -301,162 +334,17 @@ ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_feedback_requests ENABLE ROW LEVEL SECURITY;
 
--- 5) Drop existing policies (idempotent)
-DO $$
-DECLARE r record;
-BEGIN
-  FOR r IN SELECT policyname, tablename FROM pg_policies WHERE schemaname='public' AND tablename = ANY(ARRAY['organizations','memberships','invites','subscriptions','audit_logs','users','teachers','students','courses','sessions','enrollments','attendance','student_feedback','student_feedback_requests']) LOOP
-    EXECUTE format('DROP POLICY IF EXISTS "%s" ON %I', r.policyname, r.tablename);
-  END LOOP;
-END$$;
-
--- 6) Policies
+-- Organization policies. Other tables receive scoped policies below.
 CREATE POLICY "Organizations are org-scoped readable by members"
   ON organizations FOR SELECT USING (
-    owner_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM memberships m WHERE m.org_id = organizations.id AND m.user_id = auth.uid())
+    owner_id = app_private.user_id()
+    OR EXISTS (SELECT 1 FROM memberships m WHERE m.org_id = organizations.id AND m.user_id = app_private.user_id())
   );
-CREATE POLICY "Organizations insert by owner" ON organizations FOR INSERT WITH CHECK (owner_id = auth.uid());
-CREATE POLICY "Organizations update by owner" ON organizations FOR UPDATE USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
-CREATE POLICY "Organizations delete by owner" ON organizations FOR DELETE USING (owner_id = auth.uid());
+CREATE POLICY "Organizations insert by owner" ON organizations FOR INSERT WITH CHECK (owner_id = app_private.user_id());
+CREATE POLICY "Organizations update by owner" ON organizations FOR UPDATE USING (owner_id = app_private.user_id()) WITH CHECK (owner_id = app_private.user_id());
+CREATE POLICY "Organizations delete by owner" ON organizations FOR DELETE USING (owner_id = app_private.user_id());
 
-CREATE POLICY "Memberships are org-scoped readable by members"
-  ON memberships FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Memberships insert by org admins"
-  ON memberships FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Memberships update by org admins"
-  ON memberships FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Memberships delete by org admins"
-  ON memberships FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-
-CREATE POLICY "Invites readable in org by members"
-  ON invites FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Invites insert by org admins"
-  ON invites FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Invites update by org admins"
-  ON invites FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Invites delete by org admins"
-  ON invites FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-
-CREATE POLICY "Subscriptions readable by org members"
-  ON subscriptions FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Subscriptions mutate by org admins"
-  ON subscriptions FOR ALL USING (public.app_has_org_role(org_id, ARRAY['owner','admin']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-
-CREATE POLICY "Audit logs readable by org admins"
-  ON audit_logs FOR SELECT USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Audit logs insert by members"
-  ON audit_logs FOR INSERT WITH CHECK (public.app_is_org_member(org_id));
-
-CREATE POLICY "Users readable by self within org"
-  ON users FOR SELECT USING (id = auth.uid());
-CREATE POLICY "Users readable by org admins"
-  ON users FOR SELECT USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Users update self within org"
-  ON users FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
-
-CREATE POLICY "Teachers readable by org members"
-  ON teachers FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Teachers insert by org admins"
-  ON teachers FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Teachers update by org admins"
-  ON teachers FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY "Teachers delete by org admins"
-  ON teachers FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-
-CREATE POLICY "Students readable by org members"
-  ON students FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Students insert by admins or teachers"
-  ON students FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Students update by admins or teachers"
-  ON students FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Students delete by admins or teachers"
-  ON students FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-
-CREATE POLICY "Sessions readable by org members"
-  ON sessions FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Sessions insert by admins or teachers"
-  ON sessions FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Sessions update by admins or teachers"
-  ON sessions FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Sessions delete by admins or teachers"
-  ON sessions FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-
-CREATE POLICY "Courses readable by org members"
-  ON courses FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Courses insert by admins or teachers"
-  ON courses FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Courses update by admins or teachers"
-  ON courses FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Courses delete by admins or teachers"
-  ON courses FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-
-CREATE POLICY "Enrollments readable by org members"
-  ON enrollments FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Enrollments insert by admins or teachers"
-  ON enrollments FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Enrollments update by admins or teachers"
-  ON enrollments FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Enrollments delete by admins or teachers"
-  ON enrollments FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-
-CREATE POLICY "Attendance readable by org members"
-  ON attendance FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Attendance insert by admins or teachers"
-  ON attendance FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Attendance update by admins or teachers"
-  ON attendance FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Attendance delete by admins or teachers"
-  ON attendance FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-
-CREATE POLICY "Student feedback readable by org members"
-  ON student_feedback FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Student feedback insert by admins or teachers"
-  ON student_feedback FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Student feedback update by admins or teachers"
-  ON student_feedback FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Student feedback delete by admins or teachers"
-  ON student_feedback FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-
-CREATE POLICY "Student feedback requests readable by org members"
-  ON student_feedback_requests FOR SELECT USING (public.app_is_org_member(org_id));
-CREATE POLICY "Student feedback requests insert by admins or teachers"
-  ON student_feedback_requests FOR INSERT WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Student feedback requests update by admins or teachers"
-  ON student_feedback_requests FOR UPDATE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']))
-  WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-CREATE POLICY "Student feedback requests delete by admins or teachers"
-  ON student_feedback_requests FOR DELETE USING (public.app_has_org_role(org_id, ARRAY['owner','admin','teacher']));
-
--- 7) Triggers: drop existing then create
-DO $$
-BEGIN
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at';         IF FOUND THEN EXECUTE 'DROP TRIGGER update_users_updated_at ON users'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_teachers_updated_at';      IF FOUND THEN EXECUTE 'DROP TRIGGER update_teachers_updated_at ON teachers'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_students_updated_at';      IF FOUND THEN EXECUTE 'DROP TRIGGER update_students_updated_at ON students'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_sessions_updated_at';      IF FOUND THEN EXECUTE 'DROP TRIGGER update_sessions_updated_at ON sessions'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_attendance_updated_at';    IF FOUND THEN EXECUTE 'DROP TRIGGER update_attendance_updated_at ON attendance'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_organizations_updated_at'; IF FOUND THEN EXECUTE 'DROP TRIGGER update_organizations_updated_at ON organizations'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_memberships_updated_at';   IF FOUND THEN EXECUTE 'DROP TRIGGER update_memberships_updated_at ON memberships'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_invites_updated_at';       IF FOUND THEN EXECUTE 'DROP TRIGGER update_invites_updated_at ON invites'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_subscriptions_updated_at'; IF FOUND THEN EXECUTE 'DROP TRIGGER update_subscriptions_updated_at ON subscriptions'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_courses_updated_at';       IF FOUND THEN EXECUTE 'DROP TRIGGER update_courses_updated_at ON courses'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_enrollments_updated_at';   IF FOUND THEN EXECUTE 'DROP TRIGGER update_enrollments_updated_at ON enrollments'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_student_feedback_updated_at'; IF FOUND THEN EXECUTE 'DROP TRIGGER update_student_feedback_updated_at ON student_feedback'; END IF;
-  PERFORM 1 FROM pg_trigger WHERE tgname = 'update_student_feedback_requests_updated_at'; IF FOUND THEN EXECUTE 'DROP TRIGGER update_student_feedback_requests_updated_at ON student_feedback_requests'; END IF;
-END;
-$$;
-
+-- Updated timestamp triggers (fresh Neon installation).
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_memberships_updated_at BEFORE UPDATE ON memberships FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_invites_updated_at BEFORE UPDATE ON invites FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
@@ -471,8 +359,7 @@ CREATE TRIGGER update_enrollments_updated_at BEFORE UPDATE ON enrollments FOR EA
 CREATE TRIGGER update_student_feedback_updated_at BEFORE UPDATE ON student_feedback FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_student_feedback_requests_updated_at BEFORE UPDATE ON student_feedback_requests FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- Security hardening (also shipped separately for existing installations).
--- Apply after schema.sql on existing deployments. Transactional and repeatable.
+-- Security hardening (fresh Neon installation).
 -- Abort on existing cross-organization links; never delete or silently repair data.
 BEGIN;
 
@@ -480,7 +367,7 @@ CREATE OR REPLACE FUNCTION public.app_teacher_owns(check_org uuid, check_teacher
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT public.app_has_org_role(check_org, ARRAY['teacher']) AND EXISTS (
     SELECT 1 FROM public.teachers t WHERE t.id = check_teacher
-      AND t.org_id = check_org AND t.user_id = auth.uid()
+      AND t.org_id = check_org AND t.user_id = app_private.user_id()
   );
 $$;
 
@@ -520,7 +407,7 @@ CREATE OR REPLACE FUNCTION public.app_teacher_feedback(
         AND a.student_id = check_student AND public.app_teacher_session(check_org, a.session_id)));
 $$;
 
--- These SECURITY DEFINER functions only return access decisions for auth.uid().
+-- These SECURITY DEFINER functions only return access decisions for app_private.user_id().
 REVOKE ALL ON FUNCTION public.app_teacher_owns(uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_teacher_session(uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_teacher_course(uuid,uuid) FROM PUBLIC;
@@ -568,19 +455,14 @@ REVOKE ALL ON FUNCTION public.app_validate_org_relations() FROM PUBLIC;
 
 LOCK TABLE public.memberships, public.invites, public.subscriptions, public.audit_logs, public.users, public.teachers, public.students, public.courses, public.sessions, public.enrollments, public.attendance, public.student_feedback, public.student_feedback_requests IN SHARE ROW EXCLUSIVE MODE;
 
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.memberships;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.memberships
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations();
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.invites;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.invites
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations();
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.subscriptions;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.subscriptions
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations();
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.audit_logs;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.audit_logs
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations();
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.users;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations();
 DO $$ BEGIN
@@ -589,10 +471,8 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Cross-organization links found: teachers.user_id. Repair these before retrying.';
   END IF;
 END $$;
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.teachers;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.teachers
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations('user_id', 'users');
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.students;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.students
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations();
 DO $$ BEGIN
@@ -601,7 +481,6 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Cross-organization links found: courses.lead_teacher_id. Repair these before retrying.';
   END IF;
 END $$;
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.courses;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.courses
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations('lead_teacher_id', 'teachers');
 DO $$ BEGIN
@@ -616,7 +495,6 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Cross-organization links found: sessions.teacher_id. Repair these before retrying.';
   END IF;
 END $$;
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.sessions;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.sessions
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations('course_id', 'courses', 'teacher_id', 'teachers');
 DO $$ BEGIN
@@ -637,7 +515,6 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Cross-organization links found: enrollments.teacher_id. Repair these before retrying.';
   END IF;
 END $$;
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.enrollments;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.enrollments
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations('student_id', 'students', 'course_id', 'courses', 'teacher_id', 'teachers');
 DO $$ BEGIN
@@ -652,7 +529,6 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Cross-organization links found: attendance.student_id. Repair these before retrying.';
   END IF;
 END $$;
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.attendance;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.attendance
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations('session_id', 'sessions', 'student_id', 'students');
 DO $$ BEGIN
@@ -685,7 +561,6 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Cross-organization links found: student_feedback.session_id. Repair these before retrying.';
   END IF;
 END $$;
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.student_feedback;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.student_feedback
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations('student_id', 'students', 'attendance_id', 'attendance', 'teacher_id', 'teachers', 'course_id', 'courses', 'session_id', 'sessions');
 DO $$ BEGIN
@@ -712,16 +587,9 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Cross-organization links found: student_feedback_requests.feedback_id. Repair these before retrying.';
   END IF;
 END $$;
-DROP TRIGGER IF EXISTS enforce_org_relations ON public.student_feedback_requests;
 CREATE TRIGGER enforce_org_relations BEFORE INSERT OR UPDATE ON public.student_feedback_requests
   FOR EACH ROW EXECUTE FUNCTION public.app_validate_org_relations('attendance_id', 'attendance', 'student_id', 'students', 'session_id', 'sessions', 'feedback_id', 'student_feedback');
 
-DO $$ DECLARE p record; BEGIN
-  FOR p IN SELECT tablename, policyname FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = ANY(ARRAY['memberships','invites','subscriptions','audit_logs','users','teachers','students','courses','sessions','enrollments','attendance','student_feedback','student_feedback_requests']) LOOP
-    EXECUTE format('DROP POLICY %I ON public.%I', p.policyname, p.tablename);
-  END LOOP;
-END $$;
 ALTER TABLE public.memberships ENABLE ROW LEVEL SECURITY;
 CREATE POLICY scoped_read ON public.memberships FOR SELECT TO authenticated USING (public.app_is_org_member(org_id));
 CREATE POLICY scoped_insert ON public.memberships FOR INSERT TO authenticated WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
@@ -736,10 +604,10 @@ ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY scoped_read ON public.subscriptions FOR SELECT TO authenticated USING (public.app_is_org_member(org_id));
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY scoped_read ON public.audit_logs FOR SELECT TO authenticated USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY member_audit_insert ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (public.app_is_org_member(org_id) AND actor_id = auth.uid());
+CREATE POLICY member_audit_insert ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (public.app_is_org_member(org_id) AND actor_id = app_private.user_id());
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY scoped_read ON public.users FOR SELECT TO authenticated USING (id = auth.uid() OR public.app_has_org_role(org_id, ARRAY['owner','admin']));
-CREATE POLICY self_update ON public.users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY scoped_read ON public.users FOR SELECT TO authenticated USING (id = app_private.user_id() OR public.app_has_org_role(org_id, ARRAY['owner','admin']));
+CREATE POLICY self_update ON public.users FOR UPDATE TO authenticated USING (id = app_private.user_id()) WITH CHECK (id = app_private.user_id());
 ALTER TABLE public.teachers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY scoped_read ON public.teachers FOR SELECT TO authenticated USING (public.app_has_org_role(org_id, ARRAY['owner','admin','student','viewer']) OR public.app_teacher_owns(org_id, id));
 CREATE POLICY scoped_insert ON public.teachers FOR INSERT TO authenticated WITH CHECK (public.app_has_org_role(org_id, ARRAY['owner','admin']));
@@ -782,3 +650,7 @@ CREATE POLICY scoped_update ON public.student_feedback_requests FOR UPDATE TO au
 CREATE POLICY scoped_delete ON public.student_feedback_requests FOR DELETE TO authenticated USING (public.app_has_org_role(org_id, ARRAY['owner','admin']));
 
 COMMIT;
+
+GRANT SELECT,INSERT,UPDATE,DELETE ON organizations,memberships,invites,subscriptions,audit_logs,users,teachers,students,courses,sessions,enrollments,attendance,student_feedback,student_feedback_requests TO authenticated;
+CREATE POLICY self_profile_insert ON public.users FOR INSERT TO authenticated
+ WITH CHECK (id = app_private.user_id() AND public.app_is_org_member(org_id));

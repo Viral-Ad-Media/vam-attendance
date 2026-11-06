@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext, requireSessionAccess } from "@/lib/api/supabase";
+import { getRouteContext, requireSessionAccess } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { respondWithError } from "@/lib/api/errors";
 
@@ -19,16 +19,16 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     const { id } = await params;
     const context = await getRouteContext();
     await requireSessionAccess(context, id);
-    const { supabase, orgId } = context;
+    const { db, orgId } = context;
 
     const [sessionRes, enrollmentsRes, attendanceRes] = await Promise.all([
-      supabase.from("sessions").select("*").eq("org_id", orgId).eq("id", id).single(),
-      supabase
+      db.from("sessions").select("*").eq("org_id", orgId).eq("id", id).single(),
+      db
         .from("enrollments")
         .select("student_id, students(id, name, email, program, class_name)")
         .eq("org_id", orgId)
         .in("status", ["active"]),
-      supabase
+      db
         .from("attendance")
         .select("student_id, status, notes")
         .eq("org_id", orgId)
@@ -50,7 +50,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
     let relevantStudents = enrollments;
     if (courseId) {
-      const { data: courseEnrollments, error: courseEnrollmentsError } = await supabase
+      const { data: courseEnrollments, error: courseEnrollmentsError } = await db
         .from("enrollments")
         .select("student_id")
         .eq("org_id", orgId)
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { records } = bulkSchema.parse(body);
     const context = await getRouteContext();
     await requireSessionAccess(context, id, true);
-    const { supabase, session: authSession, orgId } = context;
+    const { db, session: authSession, orgId } = context;
 
     const rows = records.map((r) => ({
       org_id: orgId,
@@ -94,13 +94,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       notes: r.notes ?? null,
     }));
 
-    const { error } = await supabase
+    const { error } = await db
       .from("attendance")
       .upsert(rows, { onConflict: "org_id,session_id,student_id" });
 
     if (error) throw error;
 
-    await logAudit(supabase, orgId, authSession.user.id, "update", "attendance", id, {
+    await logAudit(db, orgId, authSession.user.id, "update", "attendance", id, {
       bulk: true,
       count: rows.length,
     });

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { respondWithError } from "@/lib/api/errors";
-import { getRouteContext, requireOrgAdmin } from "@/lib/api/supabase";
-import { getServiceClient } from "@/lib/supabase/service";
+import { getRouteContext, requireOrgAdmin } from "@/lib/api/context";
+import { getAdminDatabase } from "@/lib/db/service";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -16,9 +16,6 @@ function missingConfig() {
 
 export async function POST(request: Request) {
   if (!stripeSecret) return missingConfig();
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: "Service role key not configured." }, { status: 501 });
-  }
 
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -32,10 +29,10 @@ export async function POST(request: Request) {
 
     const { session, orgId, role } = await getRouteContext();
     requireOrgAdmin(role);
-    const supabaseService = getServiceClient();
+    const adminDb = getAdminDatabase();
     const stripe = new Stripe(stripeSecret, { apiVersion: "2024-04-10" });
 
-    const { data: orgRow, error: orgError } = await supabaseService
+    const { data: orgRow, error: orgError } = await adminDb
       .from("organizations")
       .select("stripe_customer_id")
       .eq("id", orgId)

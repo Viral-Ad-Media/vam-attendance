@@ -23,18 +23,12 @@ export function Header() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // Heuristic auth check (cookies/localStorage flags)
   React.useEffect(() => {
-    if (typeof document === "undefined") return;
-    const hasSupabaseCookie = document.cookie.includes("sb-") || document.cookie.includes("vam_active_org");
-    const stored = (() => {
-      try {
-        return localStorage.getItem("vam.account") || localStorage.getItem("vam_active_org");
-      } catch {
-        return null;
-      }
-    })();
-    setLoggedIn(Boolean(hasSupabaseCookie || stored));
+    let active = true;
+    fetch("/api/auth/get-session", { cache: "no-store" }).then((response) => response.ok ? response.json() : null)
+      .then((session) => { if (active) setLoggedIn(Boolean(session?.user)); })
+      .catch(() => { if (active) setLoggedIn(false); });
+    return () => { active = false; };
   }, []);
 
   const isActive = (href: string) => {

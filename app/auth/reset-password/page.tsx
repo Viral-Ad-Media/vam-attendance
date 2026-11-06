@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
-import { getBrowserSupabase } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth/client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = useMemo(() => getBrowserSupabase(), []);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,50 +17,18 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (!supabase) {
-      setError("Authentication client is not configured.");
-      setCheckingLink(false);
-      return;
-    }
-
-    let active = true;
-    const init = async () => {
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (!active) return;
-
-      if (sessionError) {
-        setError("Invalid or expired password link. Request a new one.");
-      } else {
-        setLinkReady(Boolean(data.session));
-      }
-      setCheckingLink(false);
-    };
-
-    init();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, session: Session | null) => {
-        if (!active) return;
-        if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-          setLinkReady(Boolean(session));
-          setError("");
-          setCheckingLink(false);
-        }
-      }
-    );
-
-    return () => {
-      active = false;
-      authListener.subscription.unsubscribe();
-    };
-  }, [supabase]);
+    const token = new URLSearchParams(window.location.search).get("token");
+    setLinkReady(Boolean(token));
+    if (!token) setError("Invalid or expired password link. Request a new one.");
+    setCheckingLink(false);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setMessage("");
 
-    if (!linkReady || !supabase) {
+    if (!linkReady) {
       setError("This password link is not active. Request a new one.");
       return;
     }
@@ -77,7 +43,7 @@ export default function ResetPasswordPage() {
 
     try {
       setLoading(true);
-      const { error: updateError } = await supabase.auth.updateUser({ password });
+      const { error: updateError } = await authClient.resetPassword({ newPassword: password, token: new URLSearchParams(window.location.search).get("token") ?? "" });
       if (updateError) {
         setError(updateError.message || "Failed to update password");
         return;

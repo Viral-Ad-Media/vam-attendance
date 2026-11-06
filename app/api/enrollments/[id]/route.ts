@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 
 const updateSchema = z.object({
@@ -23,8 +23,8 @@ function handleError(error: unknown) {
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("enrollments")
       .select("*")
       .eq("org_id", orgId)
@@ -42,8 +42,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
-    const { data, error } = await supabase
+    const { db, session, orgId } = await getRouteContext();
+    const { data, error } = await db
       .from("enrollments")
       .update(payload)
       .eq("org_id", orgId)
@@ -51,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .select()
       .single();
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "update", "enrollment", id, payload);
+    await logAudit(db, orgId, session.user.id, "update", "enrollment", id, payload);
     return NextResponse.json(data);
   } catch (error) {
     return handleError(error);
@@ -61,14 +61,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { supabase, session, orgId } = await getRouteContext();
-    const { error } = await supabase
+    const { db, session, orgId } = await getRouteContext();
+    const { error } = await db
       .from("enrollments")
       .delete()
       .eq("org_id", orgId)
       .eq("id", id);
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "delete", "enrollment", id);
+    await logAudit(db, orgId, session.user.id, "delete", "enrollment", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleError(error);

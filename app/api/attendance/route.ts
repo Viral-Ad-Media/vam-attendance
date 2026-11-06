@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext, requireSessionAccess } from "@/lib/api/supabase";
+import { getRouteContext, requireSessionAccess } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
 import { sendAttendanceFeedbackRequest } from "@/lib/api/student-feedback-email";
+
+type AttendanceRecord = { id: string; org_id: string; session_id: string; student_id: string; status: "present" | "absent" | "late" };
 
 const attendanceSchema = z.object({
   session_id: z.string().uuid(),
@@ -34,7 +36,7 @@ async function trySendFeedbackEmail(attendance: {
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, orgId, role, teacherId } = await getRouteContext();
+    const { db, orgId, role, teacherId } = await getRouteContext();
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("session_id");
     const studentId = searchParams.get("student_id");
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
     if (role === "teacher") {
       if (!teacherId) return NextResponse.json([]);
 
-      let ownSessionsQuery = supabase.from("sessions").select("id").eq("org_id", orgId).eq("teacher_id", teacherId);
+      let ownSessionsQuery = db.from("sessions").select("id").eq("org_id", orgId).eq("teacher_id", teacherId);
       if (sessionId) ownSessionsQuery = ownSessionsQuery.eq("id", sessionId);
       const { data: ownSessions, error: ownSessionsError } = await ownSessionsQuery;
       if (ownSessionsError) throw ownSessionsError;
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
       const ownSessionIds = (ownSessions ?? []).map((s) => s.id as string);
       if (ownSessionIds.length === 0) return NextResponse.json([]);
 
-      let query = supabase
+      let query = db
         .from("attendance")
         .select("*")
         .eq("org_id", orgId)
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(data ?? []);
     }
 
-    let query = supabase
+    let query = db
       .from("attendance")
       .select("*")
       .eq("org_id", orgId)
@@ -96,16 +98,16 @@ export async function POST(request: Request) {
     const payload = attendanceSchema.parse(body);
     const context = await getRouteContext();
     await requireSessionAccess(context, payload.session_id, true);
-    const { supabase, session, orgId } = context;
+    const { db, session, orgId } = context;
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("attendance")
       .insert([{ ...payload, org_id: orgId }])
       .select()
-      .single();
+      .single<AttendanceRecord>();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "create", "attendance", data.id, {
+    await logAudit(db, orgId, session.user.id, "create", "attendance", data.id, {
       session_id: data.session_id,
       student_id: data.student_id,
       status: data.status,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteContext } from "@/lib/api/supabase";
+import { getRouteContext } from "@/lib/api/context";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
@@ -17,14 +17,14 @@ const sessionSchema = z.object({
 
 export async function GET() {
   try {
-    const { supabase, orgId, role, teacherId } = await getRouteContext();
+    const { db, orgId, role, teacherId } = await getRouteContext();
 
     // Teachers only ever see their own sessions, never the whole org's.
     if (role === "teacher" && !teacherId) {
       return NextResponse.json([]);
     }
 
-    let query = supabase
+    let query = db
       .from("sessions")
       .select("*")
       .eq("org_id", orgId)
@@ -56,9 +56,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = sessionSchema.parse(body);
-    const { supabase, session, orgId } = await getRouteContext();
+    const { db, session, orgId } = await getRouteContext();
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("sessions")
       .insert([{ ...payload, org_id: orgId }])
       .select()
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     // Seed attendance placeholders for enrolled students in the same course
     if (payload.course_id) {
-      const { data: enrollments, error: enrollErr } = await supabase
+      const { data: enrollments, error: enrollErr } = await db
         .from("enrollments")
         .select("student_id")
         .eq("org_id", orgId)
@@ -81,14 +81,14 @@ export async function POST(request: Request) {
           student_id: en.student_id,
           status: "absent" as const,
         }));
-        await supabase.from("attendance").upsert(rows, {
+        await db.from("attendance").upsert(rows, {
           onConflict: "org_id,session_id,student_id",
           ignoreDuplicates: true,
         });
       }
     }
 
-    await logAudit(supabase, orgId, session.user.id, "create", "session", data.id, { title: data.title });
+    await logAudit(db, orgId, session.user.id, "create", "session", data.id, { title: data.title });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     return respondWithError(error, { action: "create-session" });
