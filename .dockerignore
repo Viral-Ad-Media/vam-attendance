@@ -19,3 +19,6 @@ out
 coverage
 *.md
 !README.md
+
+.npm
+.migration

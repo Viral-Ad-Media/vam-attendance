@@ -159,11 +159,13 @@ The Direct gmail Neon connection contains the dedicated `vam-attendance` project
 (`billowing-mud-74751577`, AWS us-east-1, PostgreSQL 18).
 
 - `main` is the intended production branch. Schema version `20261106_neon_better_auth`
-  is installed; the application tables contain no imported accounts or attendance records yet.
+  is installed. The approved legacy import contains 9 password accounts, 77 students,
+  346 sessions, 536 attendance records, and 72 enrollments; counts were verified after commit.
 - `migration-validation` has the same schema plus synthetic validation records. Live Neon
   tests confirmed teacher row isolation and denied access to credential tables.
-- Existing private records and password hashes have not been exported or copied. That transfer
-  requires explicit approval before cutover. Render configuration is unchanged.
+- The approved private-data transfer completed on 2026-11-06. Account IDs and compatible
+  password hashes were preserved. Legacy sessions were not imported, and the source database
+  remains intact. Render runtime configuration now points to Neon and Better Auth.
 
 ## Deployment on Render
 
